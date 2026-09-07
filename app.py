@@ -942,7 +942,7 @@ with tab_pareto:
     else:
         st.info("Data area tidak mencukupi untuk menampilkan analisis area terendah.")
 
-    # --- TAB 4: CAPA TRACKING & LOG INPUT TEMUAN NG ---
+   # --- TAB 4: CAPA TRACKING & LOG INPUT TEMUAN NG ---
     with tab_action:
         st.markdown('<div class="section-header">TINDAKAN PERBAIKAN & CAPA TRACKING</div>', unsafe_allow_html=True)
         
@@ -997,9 +997,9 @@ with tab_pareto:
 
         # Inisialisasi Data Session State jika Belum Ada
         if "capa_log_data" not in st.session_state:
-            st.session_state["capa_log_data"] = []
+            st.session_state["capa_log_data"] = load_capa_from_gsheets()
 
-        # Proses Simpan Data Form
+        # Proses Simpan Data Form Baru
         if btn_submit_capa:
             if input_detail_problem.strip() == "":
                 st.warning("⚠️ Mohon isi Detail Temuan Masalah sebelum menyimpan.")
@@ -1016,17 +1016,25 @@ with tab_pareto:
                     "Status": input_status
                 }
                 st.session_state["capa_log_data"].append(new_entry)
-                st.success(f"✅ Data temuan NG di area '{input_area}' berhasil disimpan!")
+                
+                # SIMPAN OTOMATIS KE GOOGLE SHEETS
+                try:
+                    save_capa_to_gsheets(st.session_state["capa_log_data"])
+                    st.success(f"✅ Data temuan NG di area '{input_area}' berhasil disimpan ke Google Sheets!")
+                except Exception as e:
+                    st.error(f"Gagal menyimpan ke Google Sheets: {e}")
+
+                st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
         
-# 3. TABEL AUDIT TRAIL / LOG CAPA TRACKING
+        # 3. TABEL AUDIT TRAIL / LOG CAPA TRACKING
         st.subheader("📋 3. Daftar Monitoring Action Plan (CAPA Log)")
         
         if st.session_state["capa_log_data"]:
             df_capa_log = pd.DataFrame(st.session_state["capa_log_data"])
             
-            # --- KONVERSI TIPE DATA TANGGAL (PENTING AGAR TIDAK ERROR) ---
+            # --- KONVERSI TIPE DATA TANGGAL ---
             if "Target Selesai" in df_capa_log.columns:
                 df_capa_log["Target Selesai"] = pd.to_datetime(df_capa_log["Target Selesai"], errors="coerce").dt.date
             
@@ -1041,7 +1049,7 @@ with tab_pareto:
 
             st.caption("💡 **Tips:** Kamu bisa mengubah status, PIC, target tanggal, atau kolom lainnya secara langsung pada tabel di bawah ini.")
 
-            # Menggunakan st.data_editor dengan tipe data yang sudah sesuai
+            # Data Editor Interaktif
             edited_df = st.data_editor(
                 df_filtered_capa,
                 column_config={
@@ -1070,7 +1078,7 @@ with tab_pareto:
                 key="capa_editor"
             )
 
-            # Sinkronisasi Perubahan Kembali ke Session State
+            # Sinkronisasi Perubahan Kembali ke Session State & Google Sheets
             if st.button("💾 Simpan Perubahan Status / Tabel", type="primary"):
                 for idx, row in edited_df.iterrows():
                     for orig_entry in st.session_state["capa_log_data"]:
@@ -1081,7 +1089,14 @@ with tab_pareto:
                             orig_entry["Prioritas"] = row["Prioritas"]
                             orig_entry["Penanggung Jawab Tier"] = row["Penanggung Jawab Tier"]
                             break
-                st.success("✅ Perubahan status CAPA Log berhasil diperbarui!")
+                
+                # SIMPAN OTOMATIS KE GOOGLE SHEETS
+                try:
+                    save_capa_to_gsheets(st.session_state["capa_log_data"])
+                    st.success("✅ Perubahan status CAPA Log berhasil diperbarui di Google Sheets!")
+                except Exception as e:
+                    st.error(f"Gagal memperbarui ke Google Sheets: {e}")
+                    
                 st.rerun()
 
             st.markdown("<br>", unsafe_allow_html=True)
