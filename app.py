@@ -993,8 +993,7 @@ with tab_pareto:
                 st.success(f"✅ Data temuan NG di area '{input_area}' berhasil disimpan!")
 
         st.markdown("<br>", unsafe_allow_html=True)
-
-        # 3. TABEL AUDIT TRAIL / LOG CAPA TRACKING
+# 3. TABEL AUDIT TRAIL / LOG CAPA TRACKING
         st.subheader("📋 3. Daftar Monitoring Action Plan (CAPA Log)")
         
         if st.session_state["capa_log_data"]:
@@ -1008,10 +1007,59 @@ with tab_pareto:
             )
             
             df_filtered_capa = df_capa_log[df_capa_log["Status"].isin(status_filter)]
-            st.dataframe(df_filtered_capa, use_container_width=True)
+
+            # Petunjuk Penggunaan
+            st.caption("💡 **Tips:** Kamu bisa mengubah status, PIC, target tanggal, atau kolom lainnya secara langsung pada tabel di bawah ini.")
+
+            # Menggunakan st.data_editor agar status dan kolom lain bisa di-edit langsung di tabel
+            edited_df = st.data_editor(
+                df_filtered_capa,
+                column_config={
+                    "Status": st.column_config.SelectboxColumn(
+                        "Status Penanganan",
+                        help="Ubah status progres penanganan CAPA",
+                        options=[
+                            "Open (Belum Ditindak)",
+                            "On Progress (Proses Pengerjaan)",
+                            "Closed (Selesai)"
+                        ],
+                        required=True,
+                    ),
+                    "Target Selesai": st.column_config.DateColumn(
+                        "Target Selesai",
+                        format="YYYY-MM-DD"
+                    ),
+                    "Prioritas": st.column_config.SelectboxColumn(
+                        "Prioritas",
+                        options=["High (Urgent)", "Medium (Standard)", "Low (Rutin)"]
+                    )
+                },
+                disabled=["Tanggal Input", "Area", "Kriteria 5S", "Detail Masalah"], # Kolom ini dikunci agar tidak tidak sengaja teredit
+                use_container_width=True,
+                num_rows="dynamic",
+                key="capa_editor"
+            )
+
+            # Sinkronisasi Perubahan Kembali ke Session State
+            if st.button("💾 Simpan Perubahan Status / Tabel", type="primary"):
+                # Update data session state dengan data yang sudah di-edit di tabel
+                for idx, row in edited_df.iterrows():
+                    # Mencari baris yang sesuai berdasarkan Tanggal Input dan Detail Masalah
+                    for orig_entry in st.session_state["capa_log_data"]:
+                        if orig_entry["Tanggal Input"] == row["Tanggal Input"] and orig_entry["Detail Masalah"] == row["Detail Masalah"]:
+                            orig_entry["Status"] = row["Status"]
+                            orig_entry["PIC"] = row["PIC"]
+                            orig_entry["Target Selesai"] = str(row["Target Selesai"])
+                            orig_entry["Prioritas"] = row["Prioritas"]
+                            orig_entry["Penanggung Jawab Tier"] = row["Penanggung Jawab Tier"]
+                            break
+                st.success("✅ Perubahan status CAPA Log berhasil diperbarui!")
+                st.rerun()
+
+            st.markdown("<br>", unsafe_allow_html=True)
             
             # Tombol Unduh Laporan CAPA
-            csv_capa = df_filtered_capa.to_csv(index=False).encode('utf-8')
+            csv_capa = edited_df.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 Download Data CAPA (CSV)",
                 data=csv_capa,
