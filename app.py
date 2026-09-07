@@ -16,31 +16,45 @@ st.set_page_config(
 # Custom Styling
 st.markdown("""
     <style>
-    .main { background-color: #f4f7f6; }
-    
+    /* Background Utama Aplikasi (Nuansa Putih-Abu-Kebiruan) */
+    .stApp {
+        background-color: #f4f7fa;
+    }
+
+    /* Background Sidebar/Menu Kiri */
+    [data-testid="stSidebar"] {
+        background-color: #ebf1f5;
+        border-right: 1px solid #cbd5e1;
+    }
+
+    /* Judul Utama */
     .dashboard-title {
-        color: #004d73;
+        color: #1370a6;
         font-size: 28px;
         font-weight: 800;
         margin-bottom: 5px;
     }
+
+    /* Subtitle */
     .dashboard-subtitle {
-        color: #555555;
+        color: #64748b;
         font-size: 14px;
         margin-bottom: 20px;
     }
-    
+
+    /* Sub-header dengan Garis Pembatas Biru */
     .section-header {
-        color: #004d73;
+        color: #1370a6;
         font-size: 20px;
         font-weight: 800;
         letter-spacing: 0.5px;
-        border-bottom: 2px solid #004d73;
+        border-bottom: 3px solid #1370a6;
         padding-bottom: 5px;
         margin-top: 15px;
         margin-bottom: 15px;
     }
 
+    /* Tabel 5S Warna Biru & Border Abu-abu */
     .table-5s {
         width: 100%;
         border-collapse: collapse;
@@ -49,34 +63,39 @@ st.markdown("""
         font-size: 12px;
         text-align: center;
         font-family: Arial, sans-serif;
+        background-color: #ffffff;
     }
     .table-5s th {
-        background-color: #004d73;
+        background-color: #1370a6;
         color: white;
         padding: 8px 4px;
-        border: 1px solid #003350;
+        border: 1px solid #0e527a;
         font-weight: bold;
     }
     .table-5s td {
-        border: 1px solid #cccccc;
+        border: 1px solid #e2e8f0;
         padding: 6px 4px;
-        color: #333333;
+        color: #334155;
     }
     .bg-label { background-color: #f0f4f8; font-weight: bold; color: #111; text-align: left; padding-left: 10px !important; }
     
     .judge-ok { background-color: #a8f087; color: #1e5a00; font-weight: bold; }
     .judge-ng { background-color: #ff5252; color: #ffffff; font-weight: bold; }
 
-    /* Box Kesimpulan Per-Grafik */
+    /* Box Kesimpulan */
     .summary-box {
-        background-color: #eef7fc;
-        border-left: 4px solid #004d73;
+        background-color: #ffffff;
+        border-left: 4px solid #1370a6;
+        border-top: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
         padding: 12px 15px;
         border-radius: 4px;
         margin-top: 10px;
         font-size: 13px;
         color: #1a3038;
         line-height: 1.5;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     }
 
     /* Box Kesimpulan Umum Keseluruhan */
@@ -108,12 +127,12 @@ st.markdown("""
     /* Card Box Analisa */
     .analysis-card {
         background-color: #ffffff;
-        border: 1px solid #e0e0e0;
+        border: 1px solid #e2e8f0;
         border-top: 4px solid #d32f2f;
         border-radius: 6px;
         padding: 15px;
         margin-bottom: 15px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     }
     .analysis-card h5 {
         color: #b71c1c;
