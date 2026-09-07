@@ -5,6 +5,7 @@ from plotly.subplots import make_subplots
 import io
 import datetime
 from groq import Groq
+from streamlit_gsheets import GSheetsConnection
 
 # ----------------- KONFIGURASI HALAMAN -----------------
 st.set_page_config(
@@ -142,7 +143,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ----------------- LINK GOOGLE SHEETS -----------------
+
+
+# ----------------- LINK GOOGLE SHEETS DATA UTAMA (PUBLISH / READ-ONLY) -----------------
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQU_jpdzrymx_0mJKGVDopip0DPhnmDLIbsTHgVnqgaJZZayJUp-UPF1MF6H6soCA/pub?output=csv"
 
 @st.cache_data(ttl=10)
@@ -157,12 +160,28 @@ def load_data(url):
 
 df = load_data(SHEET_URL)
 
-# Initialize Session State untuk menyimpan data Action Plan Temuan
-if "action_plans" not in st.session_state:
-    st.session_state.action_plans = pd.DataFrame(columns=[
-        "ID", "Area / Line", "Kriteria", "Temuan NG", "Akar Masalah (Root Cause)", 
-        "Tindakan Perbaikan (Action Plan)", "PIC", "Target Selesai", "Status"
-    ])
+
+# ----------------- LINK GOOGLE SHEETS UNTUK CAPA LOG (EDIT / READ-WRITE) -----------------
+# Pakai URL Edit biasa (bukan link /pub?output=csv)
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/PASTE_LINK_SPREADSHEET_EDIT_KAMU_DI_SINI/edit"
+
+# Inisialisasi Koneksi GSheets
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+def load_capa_from_gsheets():
+    try:
+        df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="CAPA_Log", ttl=0)
+        return df.to_dict("records")
+    except Exception:
+        return []
+
+def save_capa_to_gsheets(data_list):
+    df = pd.DataFrame(data_list)
+    conn.update(spreadsheet=SPREADSHEET_URL, worksheet="CAPA_Log", data=df)
+
+# Initialize Session State CAPA Log dengan data dari Google Sheets
+if "capa_log_data" not in st.session_state:
+    st.session_state["capa_log_data"] = load_capa_from_gsheets()
 
 # ----------------- LIST 11 KRITERIA PENILAIAN EXPLICIT -----------------
 DEFAULT_KRITERIA_LIST = [
