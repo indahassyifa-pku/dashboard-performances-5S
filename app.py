@@ -145,6 +145,8 @@ st.markdown("""
 
 
 
+import os
+
 # ----------------- LINK GOOGLE SHEETS DATA UTAMA (PUBLISH / READ-ONLY) -----------------
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQU_jpdzrymx_0mJKGVDopip0DPhnmDLIbsTHgVnqgaJZZayJUp-UPF1MF6H6soCA/pub?output=csv"
 
@@ -161,25 +163,25 @@ def load_data(url):
 df = load_data(SHEET_URL)
 
 
-# ----------------- LINK GOOGLE SHEETS UNTUK CAPA LOG (EDIT / READ-WRITE) -----------------
-# Pakai URL Edit biasa (bukan link /pub?output=csv)
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQU_jpdzrymx_0mJKGVDopip0DPhnmDLIbsTHgVnqgaJZZayJUp-UPF1MF6H6soCA/pub?output=csv"
-
-# Inisialisasi Koneksi GSheets
-conn = st.connection("gsheets", type=GSheetsConnection)
+# ----------------- STORAGE LOKAL CSV UNTUK CAPA LOG -----------------
+CAPA_CSV_FILE = "capa_log_database.csv"
 
 def load_capa_from_gsheets():
-    try:
-        df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="CAPA_Log", ttl=0)
-        return df.to_dict("records")
-    except Exception:
-        return []
+    """Membaca data CAPA dari file CSV lokal"""
+    if os.path.exists(CAPA_CSV_FILE):
+        try:
+            df_capa = pd.read_csv(CAPA_CSV_FILE)
+            return df_capa.to_dict("records")
+        except Exception:
+            return []
+    return []
 
 def save_capa_to_gsheets(data_list):
-    df = pd.DataFrame(data_list)
-    conn.update(spreadsheet=SPREADSHEET_URL, worksheet="CAPA_Log", data=df)
+    """Menyimpan data CAPA ke file CSV lokal"""
+    df_capa = pd.DataFrame(data_list)
+    df_capa.to_csv(CAPA_CSV_FILE, index=False)
 
-# Initialize Session State CAPA Log dengan data dari Google Sheets
+# Inisialisasi Session State CAPA Log menggunakan CSV Lokal
 if "capa_log_data" not in st.session_state:
     st.session_state["capa_log_data"] = load_capa_from_gsheets()
 
