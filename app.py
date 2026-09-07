@@ -713,50 +713,36 @@ with tab_summary:
                     f"</div>"
                 )
 
-        # Loop Menampilkan Grafik, Tabel, dan Analisa per Line
+        # Loop Menampilkan Grafik, Tabel, dan Analisa secara Berurutan Ke Bawah (10 Baris)
         if not filtered_lines:
             st.warning("Silakan pilih minimal satu area pada dropdown di atas.")
         else:
-            for idx in range(0, len(filtered_lines), 2):
-                c_left, c_right = st.columns(2)
+            for title_line, key_line in filtered_lines:
+                c_tgt = next((c for c in all_columns if key_line.lower() in c.lower() and 'target' in c.lower()), None)
+                c_act = next((c for c in all_columns if key_line.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
                 
-                # Line Left
-                title_l, key_l = filtered_lines[idx]
-                with c_left:
-                    c_tgt_l = next((c for c in all_columns if key_l.lower() in c.lower() and 'target' in c.lower()), None)
-                    c_act_l = next((c for c in all_columns if key_l.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
-                    
-                    t_k_l = df[c_tgt_l].dropna().tolist() if c_tgt_l else []
-                    a_k_l = df[c_act_l].dropna().tolist() if c_act_l else []
-                    
-                    clean_act_l = [float(x) for x in a_k_l if str(x).replace('.', '', 1).isdigit()]
-                    avg_l = (sum(clean_act_l) / len(clean_act_l)) if clean_act_l else 0.0
-                    lvl_l, css_l = get_level_5s(avg_l)
+                t_k = df[c_tgt].dropna().tolist() if c_tgt else []
+                a_k = df[c_act].dropna().tolist() if c_act else []
+                
+                clean_act = [float(x) for x in a_k if str(x).replace('.', '', 1).isdigit()]
+                avg_val = (sum(clean_act) / len(clean_act)) if clean_act else 0.0
+                lvl_val, css_val = get_level_5s(avg_val)
 
-                    st.markdown(f"#### 🏭 {title_l} &nbsp; <span class='badge-level {css_l}'>Level: {lvl_l} ({avg_l:.2f})</span>", unsafe_allow_html=True)
-                    st.plotly_chart(create_exact_chart(x_kriteria_num[:len(t_k_l)], t_k_l, a_k_l, f"Kriteria Penilaian - {key_l}", is_kriteria=True), use_container_width=True)
-                    st.markdown(render_exact_table(kriteria_labels[:len(t_k_l)], t_k_l, a_k_l, "Kriteria"), unsafe_allow_html=True)
-                    st.markdown(render_line_analysis(title_l, key_l, t_k_l, a_k_l), unsafe_allow_html=True)
-
-                # Line Right
-                if idx + 1 < len(filtered_lines):
-                    title_r, key_r = filtered_lines[idx+1]
-                    with c_right:
-                        c_tgt_r = next((c for c in all_columns if key_r.lower() in c.lower() and 'target' in c.lower()), None)
-                        c_act_r = next((c for c in all_columns if key_r.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
-                        
-                        t_k_r = df[c_tgt_r].dropna().tolist() if c_tgt_r else []
-                        a_k_r = df[c_act_r].dropna().tolist() if c_act_r else []
-                        
-                        clean_act_r = [float(x) for x in a_k_r if str(x).replace('.', '', 1).isdigit()]
-                        avg_r = (sum(clean_act_r) / len(clean_act_r)) if clean_act_r else 0.0
-                        lvl_r, css_r = get_level_5s(avg_r)
-
-                        st.markdown(f"#### 🏭 {title_r} &nbsp; <span class='badge-level {css_r}'>Level: {lvl_r} ({avg_r:.2f})</span>", unsafe_allow_html=True)
-                        st.plotly_chart(create_exact_chart(x_kriteria_num[:len(t_k_r)], t_k_r, a_k_r, f"Kriteria Penilaian - {key_r}", is_kriteria=True), use_container_width=True)
-                        st.markdown(render_exact_table(kriteria_labels[:len(t_k_r)], t_k_r, a_k_r, "Kriteria"), unsafe_allow_html=True)
-                        st.markdown(render_line_analysis(title_r, key_r, t_k_r, a_k_r), unsafe_allow_html=True)
-
+                # Header Area
+                st.markdown(f"#### 🏭 {title_line} &nbsp; <span class='badge-level {css_val}'>Level: {lvl_val} ({avg_val:.2f})</span>", unsafe_allow_html=True)
+                
+                # Grafik full-width
+                st.plotly_chart(create_exact_chart(x_kriteria_num[:len(t_k)], t_k, a_k, f"Kriteria Penilaian - {key_line}", is_kriteria=True), use_container_width=True)
+                
+                # Tabel full-width
+                st.markdown(render_exact_table(kriteria_labels[:len(t_k)], t_k, a_k, "Kriteria"), unsafe_allow_html=True)
+                
+                # Analisa Perbaikan
+                st.markdown(render_line_analysis(title_line, key_line, t_k, a_k), unsafe_allow_html=True)
+                
+                # Garis pemisah antar area
+                st.markdown("<hr style='margin: 30px 0; border: 0; border-top: 2px dashed #cbd5e1;'>", unsafe_allow_html=True)
+      
 # --- TAB 3: PARETO & AI RECOMMENDATION ---
 with tab_pareto:
     st.markdown('<div class="section-header">DIAGRAM PARETO: EVALUASI KRITERIA DENGAN NILAI TERRENDAH</div>', unsafe_allow_html=True)
