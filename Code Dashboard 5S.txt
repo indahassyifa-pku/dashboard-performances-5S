@@ -1,0 +1,1 @@
+python -m streamlit run "C:\Users\indah.assyifa\Desktop\5S\app.py"
