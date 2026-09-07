@@ -564,74 +564,76 @@ with tab_summary:
     """, unsafe_allow_html=True)
     # ------------------------------------------------------------------------
 
-    # Tampilan Grafik 2 Kolom (Bulan dan Area)
-    col_m, col_a = st.columns(2)
+    # Tampilan Grafik 2 Baris (Baris 1: Bulan, Baris 2: Area)
     
-    with col_m:
-        st.markdown('<div class="section-header">BY ALL (PENCAPAIAN BY MONTH)</div>', unsafe_allow_html=True)
+    # ---------------- BARIS 1: BY ALL (PENCAPAIAN BY MONTH) ----------------
+    st.markdown('<div class="section-header">BY ALL (PENCAPAIAN BY MONTH)</div>', unsafe_allow_html=True)
+    
+    if filtered_months and t_m and a_m:
+        st.plotly_chart(create_exact_chart(filtered_months, t_m, a_m, "PENCAPAIAN AKTIVITAS 5S BY MONTH"), use_container_width=True)
+        st.markdown(render_exact_table(filtered_months, t_m, a_m, "Bulan"), unsafe_allow_html=True)
         
-        if filtered_months and t_m and a_m:
-            st.plotly_chart(create_exact_chart(filtered_months, t_m, a_m, "PENCAPAIAN AKTIVITAS 5S BY MONTH"), use_container_width=True)
-            st.markdown(render_exact_table(filtered_months, t_m, a_m, "Bulan"), unsafe_allow_html=True)
-            
-            # Logic Kesimpulan By Month
-            ok_m_cnt = sum(1 for act, tgt in zip(a_m, t_m) if float(act) >= float(tgt))
-            total_m_cnt = len(filtered_months)
-            ng_m_cnt = total_m_cnt - ok_m_cnt
-            
-            st.markdown(f"""
-                <div class="summary-box">
-                    <strong>📌 Kesimpulan Pencapaian Bulanan:</strong><br>
-                    Dari total <b>{total_m_cnt} bulan</b> yang dipantau, sebanyak <b>{ok_m_cnt} bulan</b> berhasil mencapai target 5S, 
-                    sedangkan <b>{ng_m_cnt} bulan</b> masih belum memenuhi target yang ditetapkan.
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.warning("Data By Month tidak ditemukan pada Excel.")
-
-    with col_a:
-        st.markdown('<div class="section-header">BY DEPARTMENT / AREA</div>', unsafe_allow_html=True)
+        # Logic Kesimpulan By Month
+        ok_m_cnt = sum(1 for act, tgt in zip(a_m, t_m) if float(act) >= float(tgt))
+        total_m_cnt = len(filtered_months)
+        ng_m_cnt = total_m_cnt - ok_m_cnt
         
-        area_targets = []
-        area_actuals = []
+        st.markdown(f"""
+            <div class="summary-box">
+                <strong>📌 Kesimpulan Pencapaian Bulanan:</strong><br>
+                Dari total <b>{total_m_cnt} bulan</b> yang dipantau, sebanyak <b>{ok_m_cnt} bulan</b> berhasil mencapai target 5S, 
+                sedangkan <b>{ng_m_cnt} bulan</b> masih belum memenuhi target yang ditetapkan.
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.warning("Data By Month tidak ditemukan pada Excel.")
+
+    # Garis Pembatas Antara Baris 1 dan Baris 2
+    st.markdown("<hr style='margin: 35px 0; border: 0; border-top: 2px dashed #cbd5e1;'>", unsafe_allow_html=True)
+
+    # ---------------- BARIS 2: BY DEPARTMENT / AREA ----------------
+    st.markdown('<div class="section-header">BY DEPARTMENT / AREA</div>', unsafe_allow_html=True)
+    
+    area_targets = []
+    area_actuals = []
+    
+    for area in filtered_selected_areas:
+        c_t = next((c for c in all_columns if area.lower() in c.lower() and 'target' in c.lower()), None)
+        c_a = next((c for c in all_columns if area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
         
-        for area in filtered_selected_areas:
-            c_t = next((c for c in all_columns if area.lower() in c.lower() and 'target' in c.lower()), None)
-            c_a = next((c for c in all_columns if area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
-            
-            sum_t = df[c_t].dropna().sum() if c_t else 0
-            sum_a = df[c_a].dropna().sum() if c_a else 0
-            area_targets.append(sum_t)
-            area_actuals.append(sum_a)
+        sum_t = df[c_t].dropna().sum() if c_t else 0
+        sum_a = df[c_a].dropna().sum() if c_a else 0
+        area_targets.append(sum_t)
+        area_actuals.append(sum_a)
 
-        if filtered_selected_areas:
-            st.plotly_chart(create_exact_chart(filtered_selected_areas, area_targets, area_actuals, "PENCAPAIAN PER AREA / DEPARTMENT"), use_container_width=True)
-            st.markdown(render_exact_table(filtered_selected_areas, area_targets, area_actuals, "Area"), unsafe_allow_html=True)
-            
-            # Inisialisasi variabel daftar area OK & NG
-            ok_areas = []
-            ng_areas = []
-            
-            # Logic Kesimpulan By Area
-            for area, act, tgt in zip(filtered_selected_areas, area_actuals, area_targets):
-                if float(act) >= float(tgt):
-                    ok_areas.append(area)
-                else:
-                    ng_areas.append(area)
-            
-            ok_str = ", ".join(ok_areas) if ok_areas else "-"
-            ng_str = ", ".join(ng_areas) if ng_areas else "Tidak ada"
-            
-            st.markdown(f"""
-                <div class="summary-box">
-                    <strong>📌 Kesimpulan Pencapaian Area:</strong><br>
-                    Area yang <b>mencapai target (OK)</b>: <b>{ok_str}</b>.<br>
-                    Area yang <b>perlu perbaikan (NG)</b>: <b style='color:#c0392b;'>{ng_str}</b>.
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.warning("Pilih minimal satu area.")
-
+    if filtered_selected_areas:
+        st.plotly_chart(create_exact_chart(filtered_selected_areas, area_targets, area_actuals, "PENCAPAIAN PER AREA / DEPARTMENT"), use_container_width=True)
+        st.markdown(render_exact_table(filtered_selected_areas, area_targets, area_actuals, "Area"), unsafe_allow_html=True)
+        
+        # Inisialisasi variabel daftar area OK & NG
+        ok_areas = []
+        ng_areas = []
+        
+        # Logic Kesimpulan By Area
+        for area, act, tgt in zip(filtered_selected_areas, area_actuals, area_targets):
+            if float(act) >= float(tgt):
+                ok_areas.append(area)
+            else:
+                ng_areas.append(area)
+        
+        ok_str = ", ".join(ok_areas) if ok_areas else "-"
+        ng_str = ", ".join(ng_areas) if ng_areas else "Tidak ada"
+        
+        st.markdown(f"""
+            <div class="summary-box">
+                <strong>📌 Kesimpulan Pencapaian Area:</strong><br>
+                Area yang <b>mencapai target (OK)</b>: <b>{ok_str}</b>.<br>
+                Area yang <b>perlu perbaikan (NG)</b>: <b style='color:#c0392b;'>{ng_str}</b>.
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.warning("Pilih minimal satu area.")
+    
     # --- TAB 2: DETAIL KRITERIA & LEVELING ---
     with tab_details:
         st.markdown('<div class="section-header">BY KRITERIA PENILAIAN & ANALISA PERBAIKAN (DETAIL PER LINE / DEPARTMENT)</div>', unsafe_allow_html=True)
