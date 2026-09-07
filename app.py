@@ -993,6 +993,7 @@ with tab_pareto:
                 st.success(f"✅ Data temuan NG di area '{input_area}' berhasil disimpan!")
 
         st.markdown("<br>", unsafe_allow_html=True)
+        
 # 3. TABEL AUDIT TRAIL / LOG CAPA TRACKING
         st.subheader("📋 3. Daftar Monitoring Action Plan (CAPA Log)")
         
