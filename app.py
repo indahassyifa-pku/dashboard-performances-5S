@@ -1000,6 +1000,10 @@ with tab_pareto:
         if st.session_state["capa_log_data"]:
             df_capa_log = pd.DataFrame(st.session_state["capa_log_data"])
             
+            # --- KONVERSI TIPE DATA TANGGAL (PENTING AGAR TIDAK ERROR) ---
+            if "Target Selesai" in df_capa_log.columns:
+                df_capa_log["Target Selesai"] = pd.to_datetime(df_capa_log["Target Selesai"], errors="coerce").dt.date
+            
             # Filter Sederhana Status
             status_filter = st.multiselect(
                 "Filter Status CAPA:",
@@ -1009,10 +1013,9 @@ with tab_pareto:
             
             df_filtered_capa = df_capa_log[df_capa_log["Status"].isin(status_filter)]
 
-            # Petunjuk Penggunaan
             st.caption("💡 **Tips:** Kamu bisa mengubah status, PIC, target tanggal, atau kolom lainnya secara langsung pada tabel di bawah ini.")
 
-            # Menggunakan st.data_editor agar status dan kolom lain bisa di-edit langsung di tabel
+            # Menggunakan st.data_editor dengan tipe data yang sudah sesuai
             edited_df = st.data_editor(
                 df_filtered_capa,
                 column_config={
@@ -1035,7 +1038,7 @@ with tab_pareto:
                         options=["High (Urgent)", "Medium (Standard)", "Low (Rutin)"]
                     )
                 },
-                disabled=["Tanggal Input", "Area", "Kriteria 5S", "Detail Masalah"], # Kolom ini dikunci agar tidak tidak sengaja teredit
+                disabled=["Tanggal Input", "Area", "Kriteria 5S", "Detail Masalah"],
                 use_container_width=True,
                 num_rows="dynamic",
                 key="capa_editor"
@@ -1043,9 +1046,7 @@ with tab_pareto:
 
             # Sinkronisasi Perubahan Kembali ke Session State
             if st.button("💾 Simpan Perubahan Status / Tabel", type="primary"):
-                # Update data session state dengan data yang sudah di-edit di tabel
                 for idx, row in edited_df.iterrows():
-                    # Mencari baris yang sesuai berdasarkan Tanggal Input dan Detail Masalah
                     for orig_entry in st.session_state["capa_log_data"]:
                         if orig_entry["Tanggal Input"] == row["Tanggal Input"] and orig_entry["Detail Masalah"] == row["Detail Masalah"]:
                             orig_entry["Status"] = row["Status"]
