@@ -163,7 +163,7 @@ df = load_data(SHEET_URL)
 
 # ----------------- LINK GOOGLE SHEETS UNTUK CAPA LOG (EDIT / READ-WRITE) -----------------
 # Pakai URL Edit biasa (bukan link /pub?output=csv)
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/PASTE_LINK_SPREADSHEET_EDIT_KAMU_DI_SINI/edit"
+SPREADSHEET_URL = ""https://docs.google.com/spreadsheets/d/e/2PACX-1vQU_jpdzrymx_0mJKGVDopip0DPhnmDLIbsTHgVnqgaJZZayJUp-UPF1MF6H6soCA/pub?output=csv""
 
 # Inisialisasi Koneksi GSheets
 conn = st.connection("gsheets", type=GSheetsConnection)
