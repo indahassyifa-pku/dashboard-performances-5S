@@ -516,6 +516,11 @@ else:
     ng_areas = []
     ok_areas = []
 
+# ----------------- KONFIGURASI DIREKTORI GAMBAR LOKAL -----------------
+IMAGE_DIR = "uploaded_images"
+if not os.path.exists(IMAGE_DIR):
+    os.makedirs(IMAGE_DIR)
+
     # --- TAB 1: SUMMARY & ANALYSIS ---
 with tab_summary:
     # ----------------- LOGIKA BARU: HITUNG RATA-RATA DIBAGI 10 AREA & 11 KRITERIA -----------------
@@ -1062,185 +1067,239 @@ with tab_pareto:
     else:
         st.info("Data area tidak mencukupi untuk menampilkan analisis area terendah.")
 
-   # --- TAB 4: CAPA TRACKING & LOG INPUT TEMUAN NG ---
-    with tab_action:
-        st.markdown('<div class="section-header">TINDAKAN PERBAIKAN & CAPA TRACKING</div>', unsafe_allow_html=True)
+  # =========================================================================
+# --- TAB 4: CAPA TRACKING & LOG INPUT TEMUAN NG ---
+# =========================================================================
+with tab_action:
+    st.markdown('<div class="section-header">TINDAKAN PERBAIKAN & CAPA TRACKING</div>', unsafe_allow_html=True)
+    
+    # 1. TAMPILAN REKOMENDASI RCA GLOBAL (ANALISA 5W1H)
+    st.subheader("💡 1. Rekomendasi Solusi & Action Plan Berdasarkan RCA 5S")
+    
+    # Pilih Kriteria untuk Melihat Rekomendasi Standard
+    selected_rca_kriteria = st.selectbox(
+        "🎯 Pilih Kriteria Penilaian untuk Melihat Panduan Action Plan:",
+        options=list(RCA_RECOMMENDATION.keys()) if 'RCA_RECOMMENDATION' in globals() else ["1S - Seiri (Ringkas)", "2S - Seiton (Rapi)", "3S - Seiso (Resik)", "4S - Seiketsu (Rawat)", "5S - Shitsuke (Rajin)"],
+        key="select_rca_kriteria_tab4"
+    )
+    
+    rec_info = RCA_RECOMMENDATION.get(selected_rca_kriteria, {}) if 'RCA_RECOMMENDATION' in globals() else {}
+    
+    st.markdown(f"""
+        <div class="summary-box" style="background-color: #f9f9f9; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; margin-bottom: 25px;">
+            <p style="margin-bottom: 8px;"><b>🔍 Root Cause Analysis / Akar Masalah (Why):</b><br>{rec_info.get('cause', '-')}</p>
+            <hr style="margin: 10px 0; border: 0; border-top: 1px solid #e0e0e0;">
+            <p style="margin-bottom: 8px;"><b>💡 Rekomendasi Solusi & Matriks Action Plan (How):</b></p>
+            <div style="padding-left: 10px; font-size: 13px; line-height: 1.6;">
+                &bull; <b>Operator:</b> <span style="color:#1b5e20;">{rec_info.get('action_operator', '-')}</span><br>
+                &bull; <b>Group Leader (GL):</b> <span style="color:#0d47a1;">{rec_info.get('action_gl', '-')}</span><br>
+                &bull; <b>Foreman:</b> <span style="color:#e65100;">{rec_info.get('action_foreman', '-')}</span><br>
+                &bull; <b>Section Head (SH):</b> <span style="color:#4a148c;">{rec_info.get('action_sh', '-')}</span><br>
+                &bull; <b>Department Head (DH):</b> <span style="color:#880e4f;">{rec_info.get('action_dh', '-')}</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # 2. FORM INPUT TEMUAN PATROL 5S NG
+    st.subheader("📝 2. Log Input Temuan Patrol NG & Penugasan Action Plan")
+    
+    with st.form(key="form_input_patrol_ng", clear_on_submit=True):
+        col_f1, col_f2 = st.columns(2)
         
-        # 1. TAMPILAN REKOMENDASI RCA GLOBAL (ANALISA 5W1H)
-        st.subheader("💡 1. Rekomendasi Solusi & Action Plan Berdasarkan RCA 5S")
+        with col_f1:
+            input_area = st.selectbox("Area / Department Temuan:", options=[line[0] for line in lines_info] if 'lines_info' in globals() else ["Area Production", "Area Warehouse", "Area Office"])
+            input_kriteria = st.selectbox("Kriteria 5S Bermasalah:", options=kriteria_labels if 'kriteria_labels' in globals() else ["1S - Seiri (Ringkas)", "2S - Seiton (Rapi)", "3S - Seiso (Resik)", "4S - Seiketsu (Rawat)", "5S - Shitsuke (Rajin)"])
+            input_detail_problem = st.text_area("Detail Temuan Masalah (Kondisi Lapangan):", placeholder="Misal: Garis kuning pembatas terkelupas di dekat mesin A")
+            input_pic = st.text_input("PIC / Penanggung Jawab Perbaikan:", placeholder="Nama Operator / Group Leader")
         
-        # Pilih Kriteria untuk Melihat Rekomendasi Standard
-        selected_rca_kriteria = st.selectbox(
-            "🎯 Pilih Kriteria Penilaian untuk Melihat Panduan Action Plan:",
-            options=list(RCA_RECOMMENDATION.keys()),
-            key="select_rca_kriteria_tab4"
+        with col_f2:
+            input_target_date = st.date_input("Target Selesai Perbaikan:")
+            input_priority = st.selectbox("Tingkat Prioritas Penanganan:", options=["High (Urgent)", "Medium (Standard)", "Low (Rutin)"])
+            input_tier = st.selectbox("Penugasan Eksekusi Utama:", options=["Operator", "Group Leader", "Foreman", "Section Head", "Department Head"])
+            input_status = st.selectbox("Status Penanganan Saat Ini:", options=["Open (Belum Ditindak)", "On Progress (Proses Pengerjaan)", "Closed (Selesai)"])
+            
+            # WIDGET UPLOAD FOTO TEMUAN NG
+            uploaded_file = st.file_uploader("📷 Upload Foto Temuan NG (JPG/PNG):", type=["jpg", "jpeg", "png"])
+
+        btn_submit_capa = st.form_submit_button("💾 Simpan Log Temuan & Action Plan")
+
+    # Inisialisasi Data Session State jika Belum Ada
+    if "capa_log_data" not in st.session_state:
+        if 'load_capa_from_gsheets' in globals():
+            st.session_state["capa_log_data"] = load_capa_from_gsheets()
+        else:
+            st.session_state["capa_log_data"] = []
+
+    # Proses Simpan Data Form Baru
+    if btn_submit_capa:
+        if input_detail_problem.strip() == "":
+            st.warning("⚠️ Mohon isi Detail Temuan Masalah sebelum menyimpan.")
+        else:
+            image_path = "-"
+            
+            # Proses Penyimpanan File Foto Temuan ke Folder Lokal
+            if uploaded_file is not None:
+                file_ext = uploaded_file.name.split(".")[-1]
+                filename = f"img_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.{file_ext}"
+                image_path = os.path.join(IMAGE_DIR, filename)
+                
+                with open(image_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+
+            new_entry = {
+                "Tanggal Input": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
+                "Area": input_area,
+                "Kriteria 5S": input_kriteria,
+                "Detail Masalah": input_detail_problem,
+                "PIC": input_pic if input_pic else "-",
+                "Target Selesai": str(input_target_date),
+                "Prioritas": input_priority,
+                "Penanggung Jawab Tier": input_tier,
+                "Status": input_status,
+                "Foto Temuan": image_path  # Menyimpan Path File Gambar
+            }
+            st.session_state["capa_log_data"].append(new_entry)
+            
+            # SIMPAN OTOMATIS KE GOOGLE SHEETS
+            try:
+                if 'save_capa_to_gsheets' in globals():
+                    save_capa_to_gsheets(st.session_state["capa_log_data"])
+                    st.success(f"✅ Data temuan NG & Foto di area '{input_area}' berhasil disimpan!")
+                else:
+                    st.success(f"✅ Data temuan NG & Foto di area '{input_area}' berhasil disimpan secara lokal!")
+            except Exception as e:
+                st.error(f"Gagal menyimpan ke Google Sheets: {e}")
+
+            st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # 3. TABEL AUDIT TRAIL / LOG CAPA TRACKING
+    st.subheader("📋 3. Daftar Monitoring Action Plan (CAPA Log)")
+    
+    if st.session_state["capa_log_data"]:
+        df_capa_log = pd.DataFrame(st.session_state["capa_log_data"])
+        
+        # --- KONVERSI TIPE DATA TANGGAL ---
+        if "Target Selesai" in df_capa_log.columns:
+            df_capa_log["Target Selesai"] = pd.to_datetime(df_capa_log["Target Selesai"], errors="coerce").dt.date
+        
+        # Filter Sederhana Status
+        status_filter = st.multiselect(
+            "Filter Status CAPA:",
+            options=["Open (Belum Ditindak)", "On Progress (Proses Pengerjaan)", "Closed (Selesai)"],
+            default=["Open (Belum Ditindak)", "On Progress (Proses Pengerjaan)", "Closed (Selesai)"]
         )
         
-        rec_info = RCA_RECOMMENDATION.get(selected_rca_kriteria, {})
-        
-        st.markdown(f"""
-            <div class="summary-box" style="background-color: #f9f9f9; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; margin-bottom: 25px;">
-                <p style="margin-bottom: 8px;"><b>🔍 Root Cause Analysis / Akar Masalah (Why):</b><br>{rec_info.get('cause', '-')}</p>
-                <hr style="margin: 10px 0; border: 0; border-top: 1px solid #e0e0e0;">
-                <p style="margin-bottom: 8px;"><b>💡 Rekomendasi Solusi & Matriks Action Plan (How):</b></p>
-                <div style="padding-left: 10px; font-size: 13px; line-height: 1.6;">
-                    &bull; <b>Operator:</b> <span style="color:#1b5e20;">{rec_info.get('action_operator', '-')}</span><br>
-                    &bull; <b>Group Leader (GL):</b> <span style="color:#0d47a1;">{rec_info.get('action_gl', '-')}</span><br>
-                    &bull; <b>Foreman:</b> <span style="color:#e65100;">{rec_info.get('action_foreman', '-')}</span><br>
-                    &bull; <b>Section Head (SH):</b> <span style="color:#4a148c;">{rec_info.get('action_sh', '-')}</span><br>
-                    &bull; <b>Department Head (DH):</b> <span style="color:#880e4f;">{rec_info.get('action_dh', '-')}</span>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        df_filtered_capa = df_capa_log[df_capa_log["Status"].isin(status_filter)]
 
-        st.markdown("---")
+        st.caption("💡 **Tips:** Kamu bisa mengubah status, PIC, target tanggal, atau kolom lainnya secara langsung pada tabel di bawah ini.")
 
-        # 2. FORM INPUT TEMUAN PATROL 5S NG
-        st.subheader("📝 2. Log Input Temuan Patrol NG & Penugasan Action Plan")
-        
-        with st.form(key="form_input_patrol_ng", clear_on_submit=True):
-            col_f1, col_f2 = st.columns(2)
+        # Data Editor Interaktif
+        edited_df = st.data_editor(
+            df_filtered_capa,
+            column_config={
+                "Status": st.column_config.SelectboxColumn(
+                    "Status Penanganan",
+                    help="Ubah status progres penanganan CAPA",
+                    options=[
+                        "Open (Belum Ditindak)",
+                        "On Progress (Proses Pengerjaan)",
+                        "Closed (Selesai)"
+                    ],
+                    required=True,
+                ),
+                "Target Selesai": st.column_config.DateColumn(
+                    "Target Selesai",
+                    format="YYYY-MM-DD"
+                ),
+                "Prioritas": st.column_config.SelectboxColumn(
+                    "Prioritas",
+                    options=["High (Urgent)", "Medium (Standard)", "Low (Rutin)"]
+                ),
+                "Foto Temuan": st.column_config.TextColumn(
+                    "Path Foto", 
+                    disabled=True
+                )
+            },
+            disabled=["Tanggal Input", "Area", "Kriteria 5S", "Detail Masalah"],
+            use_container_width=True,
+            num_rows="dynamic",
+            key="capa_editor"
+        )
+
+        # Sinkronisasi Perubahan Kembali ke Session State & Google Sheets
+        if st.button("💾 Simpan Perubahan Status / Tabel", type="primary"):
+            for idx, row in edited_df.iterrows():
+                for orig_entry in st.session_state["capa_log_data"]:
+                    if orig_entry["Tanggal Input"] == row["Tanggal Input"] and orig_entry["Detail Masalah"] == row["Detail Masalah"]:
+                        orig_entry["Status"] = row["Status"]
+                        orig_entry["PIC"] = row["PIC"]
+                        orig_entry["Target Selesai"] = str(row["Target Selesai"])
+                        orig_entry["Prioritas"] = row["Prioritas"]
+                        orig_entry["Penanggung Jawab Tier"] = row["Penanggung Jawab Tier"]
+                        break
             
-            with col_f1:
-                input_area = st.selectbox("Area / Department Temuan:", options=[line[0] for line in lines_info])
-                input_kriteria = st.selectbox("Kriteria 5S Bermasalah:", options=kriteria_labels)
-                input_detail_problem = st.text_area("Detail Temuan Masalah (Kondisi Lapangan):", placeholder="Misal: Garis kuning pembatas terkelupas di dekat mesin A")
-                input_pic = st.text_input("PIC / Penanggung Jawab Perbaikan:", placeholder="Nama Operator / Group Leader")
-            
-            with col_f2:
-                input_target_date = st.date_input("Target Selesai Perbaikan:")
-                input_priority = st.selectbox("Tingkat Prioritas Penanganan:", options=["High (Urgent)", "Medium (Standard)", "Low (Rutin)"])
-                input_tier = st.selectbox("Penugasan Eksekusi Utama:", options=["Operator", "Group Leader", "Foreman", "Section Head", "Department Head"])
-                input_status = st.selectbox("Status Penanganan Saat Ini:", options=["Open (Belum Ditindak)", "On Progress (Proses Pengerjaan)", "Closed (Selesai)"])
-
-            btn_submit_capa = st.form_submit_button("💾 Simpan Log Temuan & Action Plan")
-
-        # Inisialisasi Data Session State jika Belum Ada
-        if "capa_log_data" not in st.session_state:
-            st.session_state["capa_log_data"] = load_capa_from_gsheets()
-
-        # Proses Simpan Data Form Baru
-        if btn_submit_capa:
-            if input_detail_problem.strip() == "":
-                st.warning("⚠️ Mohon isi Detail Temuan Masalah sebelum menyimpan.")
-            else:
-                new_entry = {
-                    "Tanggal Input": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
-                    "Area": input_area,
-                    "Kriteria 5S": input_kriteria,
-                    "Detail Masalah": input_detail_problem,
-                    "PIC": input_pic if input_pic else "-",
-                    "Target Selesai": str(input_target_date),
-                    "Prioritas": input_priority,
-                    "Penanggung Jawab Tier": input_tier,
-                    "Status": input_status
-                }
-                st.session_state["capa_log_data"].append(new_entry)
-                
-                # SIMPAN OTOMATIS KE GOOGLE SHEETS
-                try:
+            # SIMPAN OTOMATIS KE GOOGLE SHEETS
+            try:
+                if 'save_capa_to_gsheets' in globals():
                     save_capa_to_gsheets(st.session_state["capa_log_data"])
-                    st.success(f"✅ Data temuan NG di area '{input_area}' berhasil disimpan ke Google Sheets!")
-                except Exception as e:
-                    st.error(f"Gagal menyimpan ke Google Sheets: {e}")
-
-                st.rerun()
+                    st.success("✅ Perubahan status CAPA Log berhasil diperbarui!")
+                else:
+                    st.success("✅ Perubahan status CAPA Log berhasil diperbarui secara lokal!")
+            except Exception as e:
+                st.error(f"Gagal memperbarui ke Google Sheets: {e}")
+                
+            st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # 3. TABEL AUDIT TRAIL / LOG CAPA TRACKING
-        st.subheader("📋 3. Daftar Monitoring Action Plan (CAPA Log)")
+        # 4. GALERI FOTO TEMUAN NG
+        st.subheader("🖼️ 4. Galeri Foto Temuan NG Lapangan")
         
-        if st.session_state["capa_log_data"]:
-            df_capa_log = pd.DataFrame(st.session_state["capa_log_data"])
-            
-            # --- KONVERSI TIPE DATA TANGGAL ---
-            if "Target Selesai" in df_capa_log.columns:
-                df_capa_log["Target Selesai"] = pd.to_datetime(df_capa_log["Target Selesai"], errors="coerce").dt.date
-            
-            # Filter Sederhana Status
-            status_filter = st.multiselect(
-                "Filter Status CAPA:",
-                options=["Open (Belum Ditindak)", "On Progress (Proses Pengerjaan)", "Closed (Selesai)"],
-                default=["Open (Belum Ditindak)", "On Progress (Proses Pengerjaan)", "Closed (Selesai)"]
-            )
-            
-            df_filtered_capa = df_capa_log[df_capa_log["Status"].isin(status_filter)]
+        has_image = False
+        cols_img = st.columns(3) # Grid tampilan 3 kolom
+        col_idx = 0
 
-            st.caption("💡 **Tips:** Kamu bisa mengubah status, PIC, target tanggal, atau kolom lainnya secara langsung pada tabel di bawah ini.")
-
-            # Data Editor Interaktif
-            edited_df = st.data_editor(
-                df_filtered_capa,
-                column_config={
-                    "Status": st.column_config.SelectboxColumn(
-                        "Status Penanganan",
-                        help="Ubah status progres penanganan CAPA",
-                        options=[
-                            "Open (Belum Ditindak)",
-                            "On Progress (Proses Pengerjaan)",
-                            "Closed (Selesai)"
-                        ],
-                        required=True,
-                    ),
-                    "Target Selesai": st.column_config.DateColumn(
-                        "Target Selesai",
-                        format="YYYY-MM-DD"
-                    ),
-                    "Prioritas": st.column_config.SelectboxColumn(
-                        "Prioritas",
-                        options=["High (Urgent)", "Medium (Standard)", "Low (Rutin)"]
+        for item in st.session_state["capa_log_data"]:
+            img_path = item.get("Foto Temuan", "-")
+            if img_path != "-" and os.path.exists(img_path):
+                has_image = True
+                with cols_img[col_idx % 3]:
+                    st.image(
+                        img_path, 
+                        caption=f"📍 {item['Area']} - {item['Kriteria 5S']}\n🗓️ {item['Tanggal Input']} | Status: {item['Status']}", 
+                        use_container_width=True
                     )
-                },
-                disabled=["Tanggal Input", "Area", "Kriteria 5S", "Detail Masalah"],
-                use_container_width=True,
-                num_rows="dynamic",
-                key="capa_editor"
-            )
+                col_idx += 1
 
-            # Sinkronisasi Perubahan Kembali ke Session State & Google Sheets
-            if st.button("💾 Simpan Perubahan Status / Tabel", type="primary"):
-                for idx, row in edited_df.iterrows():
-                    for orig_entry in st.session_state["capa_log_data"]:
-                        if orig_entry["Tanggal Input"] == row["Tanggal Input"] and orig_entry["Detail Masalah"] == row["Detail Masalah"]:
-                            orig_entry["Status"] = row["Status"]
-                            orig_entry["PIC"] = row["PIC"]
-                            orig_entry["Target Selesai"] = str(row["Target Selesai"])
-                            orig_entry["Prioritas"] = row["Prioritas"]
-                            orig_entry["Penanggung Jawab Tier"] = row["Penanggung Jawab Tier"]
-                            break
-                
-                # SIMPAN OTOMATIS KE GOOGLE SHEETS
-                try:
-                    save_capa_to_gsheets(st.session_state["capa_log_data"])
-                    st.success("✅ Perubahan status CAPA Log berhasil diperbarui di Google Sheets!")
-                except Exception as e:
-                    st.error(f"Gagal memperbarui ke Google Sheets: {e}")
-                    
-                st.rerun()
+        if not has_image:
+            st.info("Belum ada foto temuan yang diunggah.")
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            # Tombol Unduh Laporan CAPA
-            csv_capa = edited_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Download Data CAPA (CSV)",
-                data=csv_capa,
-                file_name="CAPA_Tracking_5S_Report.csv",
-                mime="text/csv"
-            )
-        else:
-            st.info("Belum ada log temuan yang diinputkan. Gunakan form di atas untuk mencatat temuan patrol 5S.")
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Tombol Unduh Laporan CAPA
+        csv_capa = edited_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Data CAPA (CSV)",
+            data=csv_capa,
+            file_name="CAPA_Tracking_5S_Report.csv",
+            mime="text/csv"
+        )
+    else:
+        st.info("Belum ada log temuan yang diinputkan. Gunakan form di atas untuk mencatat temuan patrol 5S.")
 
     # --- KESIMPULAN UMUM KESELURUHAN (GLOBAL SUMMARY) ---
     st.markdown("---")
-    grand_avg_score = (sum(avg_scores) / len(avg_scores)) if avg_scores else 0.0
-    global_level, _ = get_level_5s(grand_avg_score)
+    grand_avg_score = (sum(avg_scores) / len(avg_scores)) if 'avg_scores' in globals() and avg_scores else 0.0
+    global_level = get_level_5s(grand_avg_score)[0] if 'get_level_5s' in globals() else "N/A"
     
     top_lowest_kriteria = df_rank_p.head(2)['Kriteria'].tolist() if 'df_rank_p' in locals() else []
     top_lowest_str = " & ".join([f"<b>{k}</b>" for k in top_lowest_kriteria]) if top_lowest_kriteria else "tertentu"
 
-    if ng_areas:
+    if 'ng_areas' in globals() and ng_areas:
         action_plan_str = f"Fokus utama perbaikan dialokasikan pada area <b>{', '.join(ng_areas)}</b>, khususnya penanganan kriteria {top_lowest_str}."
     else:
         action_plan_str = "Seluruh area telah berhasil memenuhi target minimal 5S, pertahankan performa dengan konsistensi patrol berkala."
@@ -1248,10 +1307,12 @@ with tab_pareto:
     st.markdown(f"""
         <div class="summary-box-global">
             <h3 style="margin: 0 0 8px 0; font-size: 16px;">📝 KESIMPULAN UMUM PERFORMA PATROL 5S</h3>
-            Secara keseluruhan, rata-rata performa penerapan Patrol 5S di seluruh department berada pada skor <b>{grand_avg_score:.2f}</b> dengan predikat <b>LEVEL {global_level.upper()}</b>.<br>
+            Secara keseluruhan, rata-rata performa penerapan Patrol 5S di seluruh department berada pada skor <b>{grand_avg_score:.2f}</b> dengan predikat <b>LEVEL {str(global_level).upper()}</b>.<br>
             {action_plan_str}
         </div>
     """, unsafe_allow_html=True)
 
-    with st.expander("📋 Lihat Raw Data Google Sheets"):
+    if 'df' in globals():
+        with st.expander("📋 Lihat Raw Data Google Sheets"):
+            st.dataframe(df, use_container_width=True)
         st.dataframe(df, use_container_width=True)
