@@ -1256,7 +1256,7 @@ with tab_action:
 
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # 4. GALERI FOTO TEMUAN NG
+# 4. GALERI FOTO TEMUAN NG
         st.subheader("🖼️ 4. Galeri Foto Temuan NG Lapangan")
         
         has_image = False
@@ -1265,15 +1265,19 @@ with tab_action:
 
         for item in st.session_state["capa_log_data"]:
             img_path = item.get("Foto Temuan", "-")
-            if img_path != "-" and os.path.exists(img_path):
-                has_image = True
-                with cols_img[col_idx % 3]:
-                    st.image(
-                        img_path, 
-                        caption=f"📍 {item['Area']} - {item['Kriteria 5S']}\n🗓️ {item['Tanggal Input']} | Status: {item['Status']}", 
-                        use_container_width=True
-                    )
-                col_idx += 1
+            
+            # --- PERBAIKAN VALIDASI TIPE DATA GAMBAR ---
+            # Memastikan img_path berupa string valid dan bukan NaN/None/kosong
+            if isinstance(img_path, str) and img_path.strip() not in ["-", "", "nan", "None"]:
+                if os.path.exists(img_path):
+                    has_image = True
+                    with cols_img[col_idx % 3]:
+                        st.image(
+                            img_path, 
+                            caption=f"📍 {item.get('Area', '-')}\n🗓️ {item.get('Tanggal Input', '-')} | Status: {item.get('Status', '-')}", 
+                            use_container_width=True
+                        )
+                    col_idx += 1
 
         if not has_image:
             st.info("Belum ada foto temuan yang diunggah.")
