@@ -17,122 +17,135 @@ st.set_page_config(
 # Custom Styling Adaptif (Dark & Light Mode Support)
 st.markdown("""
     <style>
-    /* Menggunakan variabel CSS bawaan Streamlit untuk kompatibilitas Dark & Light Mode */
+    /* 1. Global Font & Background Alignment */
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
     
-    .dashboard-title {
-        color: var(--primary-color, #1370a6);
-        font-size: 28px;
-        font-weight: 800;
-        margin-bottom: 5px;
+    html, body, [class*="css"] {
+        font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
-    .dashboard-subtitle {
-        color: var(--text-color);
-        opacity: 0.7;
+    /* 2. Banner Header Utama (Gradient Modern) */
+    .hero-header {
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #3b82f6 100%);
+        border-radius: 18px;
+        padding: 28px 36px;
+        color: #ffffff !important;
+        margin-bottom: 24px;
+        box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.3);
+    }
+    .hero-title {
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        margin: 0 0 6px 0;
+        color: #ffffff !important;
+    }
+    .hero-subtitle {
         font-size: 14px;
+        color: #cbd5e1 !important;
+        margin: 0;
+        font-weight: 400;
+    }
+
+    /* 3. Executive Health Summary Card */
+    .summary-card-panel {
+        background-color: var(--secondary-background-color, #ffffff);
+        border-radius: 16px;
+        padding: 20px 28px;
+        border-left: 6px solid #6366f1;
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+        margin-bottom: 24px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    .summary-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-color);
+        margin-bottom: 10px;
+    }
+
+    /* 4. Executive Metric Cards dengan Colored Top Border */
+    .metric-card {
+        background-color: var(--secondary-background-color, #ffffff);
+        border-radius: 14px;
+        padding: 18px 22px;
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 15px;
+    }
+    .metric-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    .metric-total::before { background: #6366f1; }   /* Indigo */
+    .metric-close::before { background: #10b981; }   /* Emerald */
+    .metric-open::before { background: #f59e0b; }    /* Amber */
+    .metric-ng::before { background: #ef4444; }      /* Red */
+
+    .metric-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 8px;
+    }
+    .metric-val {
+        font-size: 32px;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 8px;
+        color: var(--text-color);
+    }
+    .metric-sub {
+        font-size: 12px;
+        color: #94a3b8;
+    }
+
+    /* 5. Modern Glass Container untuk Chart Plotly */
+    div[data-testid="stPlotlyChart"] {
+        background-color: var(--secondary-background-color, #ffffff);
+        border-radius: 16px;
+        padding: 16px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
         margin-bottom: 20px;
     }
 
-    .section-header {
-        color: var(--primary-color, #1370a6);
-        font-size: 18px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        border-bottom: 2px solid var(--primary-color, #1370a6);
-        padding-bottom: 5px;
-        margin-top: 20px;
-        margin-bottom: 15px;
-    }
-
-    /* Tabel 5S Adaptif */
+    /* 6. Custom Table Style */
     .table-container {
-        overflow-x: auto;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.02);
     }
     .table-5s {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 10px;
-        margin-bottom: 15px;
-        font-size: 12px;
-        text-align: center;
-        background-color: var(--secondary-background-color, rgba(255, 255, 255, 0.05));
-        border-radius: 8px;
-        overflow: hidden;
+        font-size: 13px;
     }
     .table-5s th {
-        background-color: var(--primary-color, #1370a6);
-        color: #ffffff !important;
-        padding: 10px 6px;
-        font-weight: 600;
-        border: 1px solid rgba(128, 128, 128, 0.2);
+        background-color: #f8fafc;
+        color: #475569;
+        font-weight: 700;
+        padding: 12px 10px;
+        border-bottom: 2px solid #e2e8f0;
     }
     .table-5s td {
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        padding: 8px 6px;
-        color: var(--text-color);
-    }
-    .bg-label { 
-        background-color: rgba(128, 128, 128, 0.1); 
-        font-weight: bold; 
-        color: var(--text-color); 
-        text-align: left; 
-        padding-left: 10px !important; 
-    }
-    
-    .judge-ok { background-color: rgba(46, 125, 50, 0.2); color: #2e7d32; font-weight: bold; }
-    .judge-ng { background-color: rgba(198, 40, 40, 0.2); color: #c62828; font-weight: bold; }
-
-    /* Box Kesimpulan Adaptif */
-    .summary-box {
-        background-color: var(--secondary-background-color, rgba(255, 255, 255, 0.05));
-        border-left: 4px solid var(--primary-color, #1370a6);
-        border-radius: 6px;
-        padding: 14px 18px;
-        margin-top: 12px;
-        font-size: 13px;
-        color: var(--text-color);
-        line-height: 1.6;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-
-    .summary-box-global {
-        background-color: rgba(46, 125, 50, 0.1);
-        border-left: 5px solid #2e7d32;
-        padding: 15px 20px;
-        border-radius: 8px;
-        margin-top: 25px;
-        font-size: 14px;
-        color: var(--text-color);
-        line-height: 1.6;
-    }
-
-    /* Badge Level 5S */
-    .badge-level {
-        padding: 4px 12px;
-        border-radius: 12px;
-        font-weight: bold;
-        font-size: 11px;
-        display: inline-block;
-        color: white !important;
-    }
-
-    /* Card Container untuk Grafik Plotly */
-    div[data-testid="stPlotlyChart"] {
-        background-color: var(--secondary-background-color, rgba(255, 255, 255, 0.03));
-        border: 1px solid rgba(128, 128, 128, 0.15);
-        border-radius: 12px;
         padding: 10px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        margin-bottom: 15px;
+        border-bottom: 1px solid #f1f5f9;
+        color: var(--text-color);
+        text-align: center;
     }
-    .lvl-black { background-color: #374151; }
-    .lvl-bronze { background-color: #d97706; }
-    .lvl-silver { background-color: #6b7280; }
-    .lvl-gold { background-color: #eab308; }
-    
+    .judge-ok { background-color: rgba(16, 185, 129, 0.12); color: #059669; font-weight: 700; border-radius: 6px; }
+    .judge-ng { background-color: rgba(239, 68, 68, 0.12); color: #dc2626; font-weight: 700; border-radius: 6px; }
     </style>
 """, unsafe_allow_html=True)
-
 
 
 import os
