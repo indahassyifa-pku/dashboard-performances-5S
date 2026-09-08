@@ -115,10 +115,21 @@ st.markdown("""
         display: inline-block;
         color: white !important;
     }
+
+    /* Card Container untuk Grafik Plotly */
+    div[data-testid="stPlotlyChart"] {
+        background-color: var(--secondary-background-color, rgba(255, 255, 255, 0.03));
+        border: 1px solid rgba(128, 128, 128, 0.15);
+        border-radius: 12px;
+        padding: 10px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        margin-bottom: 15px;
+    }
     .lvl-black { background-color: #374151; }
     .lvl-bronze { background-color: #d97706; }
     .lvl-silver { background-color: #6b7280; }
     .lvl-gold { background-color: #eab308; }
+    
     </style>
 """, unsafe_allow_html=True)
 
@@ -282,91 +293,86 @@ def get_level_5s(avg_score):
     else:
         return "Black", "lvl-black"
 
-# ----------------- GRAFIK & TABEL BUILDER -----------------
+# ----------------- GRAFIK PLOTLY MODERN & ADAPTIF -----------------
 def create_exact_chart(x_labels, target_vals, actual_vals, title, is_kriteria=False):
     fig = go.Figure()
     
+    # Elemen Warna Modern (Soft Emerald & Soft Coral)
     bar_colors = []
     for act, tgt in zip(actual_vals, target_vals):
         try:
             act_num = float(act)
             tgt_num = float(tgt)
             if act_num >= tgt_num:
-                bar_colors.append('#2e7d32')
+                bar_colors.append('#10B981')  # Emerald Green
             else:
-                bar_colors.append('#ef5350')
+                bar_colors.append('#F43F5E')  # Rose / Soft Red
         except (ValueError, TypeError):
-            bar_colors.append('#9e9e9e')
+            bar_colors.append('#9CA3AF')  # Slate Gray
     
+    # Bar Chart (Nilai Aktual)
     fig.add_trace(go.Bar(
         x=x_labels,
         y=actual_vals,
         name='Aktual',
-        marker_color=bar_colors,
+        marker=dict(
+            color=bar_colors,
+            line=dict(width=0),
+            opacity=0.9
+        ),
         text=actual_vals,
-        textposition='auto',
-        width=0.45 if is_kriteria else 0.55
+        textposition='outside',
+        textfont=dict(size=11, weight='bold'),
+        width=0.4 if is_kriteria else 0.45
     ))
     
+    # Line Chart (Nilai Target)
     fig.add_trace(go.Scatter(
         x=x_labels,
         y=target_vals,
         name='Target',
         mode='lines+markers',
-        line=dict(color='#29b6f6', width=3, shape='spline'),
-        marker=dict(size=8, color='#29b6f6')
+        line=dict(color='#6366F1', width=3, shape='spline'),  # Indigo
+        marker=dict(size=7, color='#4338CA', symbol='circle')
     ))
     
     clean_targets = [float(v) for v in target_vals if str(v).replace('.','',1).isdigit()]
     clean_actuals = [float(v) for v in actual_vals if str(v).replace('.','',1).isdigit()]
     max_val = max(max(clean_targets, default=10), max(clean_actuals, default=10))
     
-    # Dihapus pengaturan warna font/kertas yang dikunci agar mengikuti tema HP
     fig.update_layout(
-        title=dict(text=f"<b>{title}</b>", font=dict(size=14)),
-        height=320,
-        margin=dict(l=20, r=20, t=40, b=20),
+        title=dict(
+            text=f"<b>{title}</b>", 
+            font=dict(size=15, family="Inter, sans-serif")
+        ),
+        height=340,
+        margin=dict(l=15, r=15, t=50, b=15),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        xaxis=dict(showgrid=False, type='category'),
-        yaxis=dict(title="Nilai Patrol", showgrid=True, gridcolor='rgba(128,128,128,0.2)', range=[0, max_val * 1.25])
+        legend=dict(
+            orientation="h", 
+            yanchor="bottom", 
+            y=1.02, 
+            xanchor="right", 
+            x=1,
+            font=dict(size=12)
+        ),
+        xaxis=dict(
+            showgrid=False, 
+            type='category',
+            tickfont=dict(size=11)
+        ),
+        yaxis=dict(
+            title="Nilai Patrol", 
+            showgrid=True, 
+            gridcolor='rgba(156, 163, 175, 0.15)',
+            range=[0, max_val * 1.28]
+        ),
+        hovermode="x unified"
     )
     return fig
 
-def render_exact_table(columns_header, targets, actuals, first_col_label="Line"):
-    html = '<div class="table-container"><table class="table-5s">'
-    html += f'<tr><th style="width: 12%;">{first_col_label}</th>'
-    for col in columns_header:
-        html += f'<th>{col}</th>'
-    html += '</tr>'
-    
-    html += '<tr><td class="bg-label">Target</td>'
-    for t in targets:
-        html += f'<td>{t if t is not None and str(t) != "" else "-"}</td>'
-    html += '</tr>'
-    
-    html += '<tr><td class="bg-label">Aktual</td>'
-    for a in actuals:
-        html += f'<td>{a if a is not None and str(a) != "" else "-"}</td>'
-    html += '</tr>'
-    
-    html += '<tr><td class="bg-label">Judge</td>'
-    for a, t in zip(actuals, targets):
-        try:
-            act_num = float(a)
-            tgt_num = float(t)
-            if act_num >= tgt_num:
-                html += '<td class="judge-ok">OK</td>'
-            else:
-                html += '<td class="judge-ng">NG</td>'
-        except (ValueError, TypeError):
-            html += '<td>-</td>'
-    html += '</tr>'
-    
-    html += '</table></div>'
-    return html
 
 def create_pareto_chart(kriteria_list, scores_list):
     df_pareto = pd.DataFrame({'Kriteria': kriteria_list, 'Nilai': scores_list})
@@ -378,42 +384,49 @@ def create_pareto_chart(kriteria_list, scores_list):
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     
+    # Bar Chart Pareto
     fig.add_trace(
         go.Bar(
             x=df_pareto['Kriteria'],
             y=df_pareto['Nilai'],
             name="Rata-rata Nilai",
-            marker_color='#ff5252',
+            marker=dict(color='#F43F5E', opacity=0.85),
             text=df_pareto['Nilai'].round(2),
-            textposition='auto'
+            textposition='outside',
+            textfont=dict(size=10, weight='bold')
         ),
         secondary_y=False
     )
     
+    # Line Chart Kumulatif (%)
     fig.add_trace(
         go.Scatter(
             x=df_pareto['Kriteria'],
             y=df_pareto['CumPercentage'],
             name="Kumulatif (%)",
             mode='lines+markers',
-            line=dict(color='#004d73', width=2),
-            marker=dict(size=6)
+            line=dict(color='#0EA5E9', width=2.5, shape='spline'),
+            marker=dict(size=6, color='#0284C7')
         ),
         secondary_y=True
     )
 
     fig.update_layout(
-        title=dict(text="<b>DIAGRAM PARETO: EVALUASI KRITERIA DENGAN PERFORMA TERRENDAH</b>", font=dict(size=14, color='#004d73')),
+        title=dict(
+            text="<b>DIAGRAM PARETO: EVALUASI KRITERIA TERRENDAH</b>", 
+            font=dict(size=14, family="Inter, sans-serif")
+        ),
         height=380,
-        margin=dict(l=20, r=20, t=40, b=80),
+        margin=dict(l=15, r=15, t=50, b=80),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        xaxis=dict(showgrid=False, tickangle=-30)
+        xaxis=dict(showgrid=False, tickangle=-30, tickfont=dict(size=10))
     )
-    fig.update_yaxes(title_text="Rata-rata Nilai Kriteria", secondary_y=False, showgrid=True, gridcolor='#e2e8f0')
-    fig.update_yaxes(title_text="Persentase Kumulatif (%)", secondary_y=True, range=[0, 110], showgrid=False)
+    
+    fig.update_yaxes(title_text="Rata-rata Nilai", secondary_y=False, showgrid=True, gridcolor='rgba(156, 163, 175, 0.15)')
+    fig.update_yaxes(title_text="Persentase Kumulatif (%)", secondary_y=True, range=[0, 115], showgrid=False)
     
     return fig
 
