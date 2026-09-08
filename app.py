@@ -516,7 +516,7 @@ else:
     ng_areas = []
     ok_areas = []
 
-    # --- TAB 1: SUMMARY ---
+    # --- TAB 1: SUMMARY & ANALYSIS ---
 with tab_summary:
     # ----------------- LOGIKA BARU: HITUNG RATA-RATA DIBAGI 10 AREA & 11 KRITERIA -----------------
     filtered_months = [m for m in months_data if m in selected_months]
@@ -583,10 +583,7 @@ with tab_summary:
             </table>
         </div>
     """, unsafe_allow_html=True)
-    # ------------------------------------------------------------------------
 
-    # Tampilan Grafik 2 Baris (Baris 1: Bulan, Baris 2: Area)
-    
     # ---------------- BARIS 1: BY ALL (PENCAPAIAN BY MONTH) ----------------
     st.markdown('<div class="section-header">BY ALL (PENCAPAIAN BY MONTH)</div>', unsafe_allow_html=True)
     
@@ -594,7 +591,6 @@ with tab_summary:
         st.plotly_chart(create_exact_chart(filtered_months, t_m, a_m, "PENCAPAIAN AKTIVITAS 5S BY MONTH"), use_container_width=True)
         st.markdown(render_exact_table(filtered_months, t_m, a_m, "Bulan"), unsafe_allow_html=True)
         
-        # Logic Kesimpulan By Month
         ok_m_cnt = sum(1 for act, tgt in zip(a_m, t_m) if float(act) >= float(tgt))
         total_m_cnt = len(filtered_months)
         ng_m_cnt = total_m_cnt - ok_m_cnt
@@ -609,7 +605,6 @@ with tab_summary:
     else:
         st.warning("Data By Month tidak ditemukan pada Excel.")
 
-    # Garis Pembatas Antara Baris 1 dan Baris 2
     st.markdown("<hr style='margin: 35px 0; border: 0; border-top: 2px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
     # ---------------- BARIS 2: BY DEPARTMENT / AREA ----------------
@@ -631,11 +626,9 @@ with tab_summary:
         st.plotly_chart(create_exact_chart(filtered_selected_areas, area_targets, area_actuals, "PENCAPAIAN PER AREA / DEPARTMENT"), use_container_width=True)
         st.markdown(render_exact_table(filtered_selected_areas, area_targets, area_actuals, "Area"), unsafe_allow_html=True)
         
-        # Inisialisasi variabel daftar area OK & NG
         ok_areas = []
         ng_areas = []
         
-        # Logic Kesimpulan By Area
         for area, act, tgt in zip(filtered_selected_areas, area_actuals, area_targets):
             if float(act) >= float(tgt):
                 ok_areas.append(area)
@@ -654,6 +647,131 @@ with tab_summary:
         """, unsafe_allow_html=True)
     else:
         st.warning("Pilih minimal satu area.")
+
+    st.markdown("<hr style='margin: 40px 0; border: 0; border-top: 3px solid #004d73;'>", unsafe_allow_html=True)
+
+    # =========================================================================
+    # BAGIAN BARU: ANALISA KETIDAKTERCAPAIAN (4M, 5 WHY, FISHBONE & ACTION PLAN)
+    # =========================================================================
+    st.markdown('<div class="section-header">ANALISA KETIDAKTERCAPAIAN AKTIVITAS PATROL 5S</div>', unsafe_allow_html=True)
+
+    # 1. ANALISA KONDISI YANG ADA (4M ANALYSIS)
+    st.subheader("📋 1. Analisa Kondisi Yang Ada (4M Analysis)")
+    data_4m = [
+        {
+            "No": 1, "Man": "", "Machine": "", "Material": "", "Method": "✓",
+            "Control Item": "Pelaksanaan Patrol 5S", "Control Point": "Frekuensi & Jadwal Patrol",
+            "Standard": "Patrol rutin 1x/minggu sesuai kalender", "Actual": "Patrol hanya terlaksana 2x/bulan",
+            "Ilustration": "-", "Judge": "NG"
+        },
+        {
+            "No": 2, "Man": "✓", "Machine": "", "Material": "", "Method": "",
+            "Control Item": "Kedisiplinan Area Owner", "Control Point": "Penyelesaian CAPA 5S",
+            "Standard": "Closing CAPA 100% tepat waktu (< 7 hari)", "Actual": "Penyelesaian CAPA terlambat (rata-rata 14 hari)",
+            "Ilustration": "-", "Judge": "NG"
+        },
+        {
+            "No": 3, "Man": "", "Machine": "", "Material": "✓", "Method": "",
+            "Control Item": "Fasilitas & Labeling 5S", "Control Point": "Kelengkapan Line Marking & Label",
+            "Standard": "100% Area terlabeli & border utuh", "Actual": "Garis pembatas pudar & label alat hilang di 3 area",
+            "Ilustration": "-", "Judge": "NG"
+        }
+    ]
+    st.dataframe(
+        pd.DataFrame(data_4m),
+        column_config={
+            "Man": st.column_config.TextColumn("Man", width="small"),
+            "Machine": st.column_config.TextColumn("Mc", width="small"),
+            "Material": st.column_config.TextColumn("Mat", width="small"),
+            "Method": st.column_config.TextColumn("Met", width="small"),
+            "Judge": st.column_config.TextColumn("Judge", width="small"),
+        },
+        use_container_width=True, hide_index=True
+    )
+
+    st.markdown("---")
+
+    # 2. ANALISA SEBAB AKIBAT (5 WHY'S ANALYSIS)
+    st.subheader("🔍 2. Analisa Sebab Akibat (5 Why's Analysis)")
+    data_5why = [
+        {
+            "NO": 1, "PROBLEM DESCRIPTION": "Frekuensi Patrol 5S tidak mencapai target bulanan",
+            "STD": "Patrol 1x/minggu", "ACT": "Terlaksana 2x/bulan", "4M": "Method",
+            "WHY 1": "Jadwal patrol sering bertabrakan dengan schedule produksi urgent",
+            "WHY 2": "Belum ada alokasi waktu khusus (fixed slot) untuk patrol",
+            "WHY 3": "Patrol dianggap aktivitas opsional di luar operasional utama",
+            "WHY 4": "Belum ada KPI spesifik terkait kepatuhan jadwal Patrol 5S",
+            "WHY 5": "Sistem manajemen belum mengintegrasikan 5S ke dalam Standar Kerja Harian"
+        },
+        {
+            "NO": 2, "PROBLEM DESCRIPTION": "Penyelesaian CAPA 5S sering delay",
+            "STD": "Close < 7 hari", "ACT": "Rata-rata 14 hari", "4M": "Man",
+            "WHY 1": "PIC terlambat melakukan tindak lanjut perbaikan",
+            "WHY 2": "PIC tidak menerima notifikasi reminder tugas perbaikan",
+            "WHY 3": "Monitoring CAPA masih dilakukan secara manual berkala",
+            "WHY 4": "Sistem tracking CAPA belum terhubung langsung dengan alert PIC",
+            "WHY 5": "Belum ada sistem eskalasi otomatis jika CAPA melewati due date"
+        }
+    ]
+    st.dataframe(pd.DataFrame(data_5why), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+
+    # 3. DIAGRAM ISHIKAWA / FISHBONE
+    st.subheader("🐟 3. Diagram Fishbone / Ishikawa (Ketidaktercapaian 5S)")
+    import plotly.graph_objects as go
+
+    fig_fishbone = go.Figure()
+    fig_fishbone.add_trace(go.Scatter(
+        x=[0, 10, 11], y=[0, 0, 0],
+        mode='lines+text',
+        line=dict(color='#1f77b4', width=4),
+        text=["", "", "<b>Pencapaian 5S<br>Tidak Tercapai</b>"],
+        textposition="middle right", showlegend=False
+    ))
+
+    categories = [
+        ("METHOD", 3, 2, "Jadwal bentrok produksi<br>→ Tanpa fixed time slot"),
+        ("MAN", 7, 2, "Delay tindakan perbaikan<br>→ Tanpa reminder sistem"),
+        ("MATERIAL", 3, -2, "Border & label pudar/hilang<br>→ Tidak ada jadwal peremajaan"),
+        ("MACHINE", 7, -2, "Alat kebersihan rusak<br>→ Penanggung jawab tidak jelas")
+    ]
+
+    for cat, x_top, y_top, subtext in categories:
+        fig_fishbone.add_trace(go.Scatter(
+            x=[x_top - 1, x_top], y=[y_top, 0],
+            mode='lines+text',
+            line=dict(color='#2c3e50', width=2),
+            text=[f"<b>{cat}</b>", ""],
+            textposition="top center" if y_top > 0 else "bottom center",
+            showlegend=False
+        ))
+        fig_fishbone.add_annotation(
+            x=x_top - 0.5, y=y_top / 2,
+            text=subtext, showarrow=False,
+            font=dict(size=10, color="#555555")
+        )
+
+    fig_fishbone.update_layout(
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 14]),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-4, 4]),
+        height=320, margin=dict(l=20, r=20, t=20, b=20),
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    st.plotly_chart(fig_fishbone, use_container_width=True)
+
+    st.markdown("---")
+
+    # 4. RENCANA PERBAIKAN (ACTION PLAN)
+    st.subheader("📅 4. Rencana & Tindakan Perbaikan (Action Plan)")
+    data_action_plan = [
+        {"No": 1, "Item Problem": "Frekuensi Patrol 5S tidak mencapai target bulanan", "Activity": "Penetapan Fixed Time Slot & KPI 5S", "Detail Activity": "Penyusunan jadwal terintegrasi kalender produksi", "Days": 3, "PIC": "OS & Produksi", "Target": "Mei W-III"},
+        {"No": 2, "Item Problem": "Frekuensi Patrol 5S tidak mencapai target bulanan", "Activity": "Penetapan Fixed Time Slot & KPI 5S", "Detail Activity": "Sosialisasi & Kick Off Jam Khusus 5S", "Days": 2, "PIC": "ALL Dept", "Target": "Mei W-IV"},
+        {"No": 3, "Item Problem": "Penyelesaian CAPA 5S sering delay", "Activity": "Digitalisasi System Tracking CAPA", "Detail Activity": "Pengembangan Dashboard & Auto Notification", "Days": 7, "PIC": "IT / OS", "Target": "Juni W-I"},
+        {"No": 4, "Item Problem": "Penyelesaian CAPA 5S sering delay", "Activity": "Digitalisasi System Tracking CAPA", "Detail Activity": "Trial System & Evaluasi Dashboard", "Days": 5, "PIC": "ALL Dept", "Target": "Juni W-II"},
+        {"No": 5, "Item Problem": "Penyelesaian CAPA 5S sering delay", "Activity": "Digitalisasi System Tracking CAPA", "Detail Activity": "Standarisasi Sistem Eskalasi Overdue CAPA", "Days": 3, "PIC": "OS & SH", "Target": "Juni W-III"}
+    ]
+    st.dataframe(pd.DataFrame(data_action_plan), use_container_width=True, hide_index=True)
     
     # --- TAB 2: DETAIL KRITERIA & LEVELING ---
     with tab_details:
