@@ -14,138 +14,135 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom Styling Adaptif (Dark & Light Mode Support)
+# Custom Styling
 st.markdown("""
     <style>
-    /* 1. Global Font & Background Alignment */
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-    
-    html, body, [class*="css"] {
-        font-family: 'Plus Jakarta Sans', sans-serif;
+    /* Background Utama Aplikasi (Nuansa Putih-Abu-Kebiruan) */
+    .stApp {
+        background-color: #f4f7fa;
     }
 
-    /* 2. Banner Header Utama (Gradient Modern) */
-    .hero-header {
-        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #3b82f6 100%);
-        border-radius: 18px;
-        padding: 28px 36px;
-        color: #ffffff !important;
-        margin-bottom: 24px;
-        box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.3);
+    /* Background Sidebar/Menu Kiri */
+    [data-testid="stSidebar"] {
+        background-color: #ebf1f5;
+        border-right: 1px solid #cbd5e1;
     }
-    .hero-title {
+
+    /* Judul Utama */
+    .dashboard-title {
+        color: #1370a6;
         font-size: 28px;
         font-weight: 800;
-        letter-spacing: -0.5px;
-        margin: 0 0 6px 0;
-        color: #ffffff !important;
+        margin-bottom: 5px;
     }
-    .hero-subtitle {
+
+    /* Subtitle */
+    .dashboard-subtitle {
+        color: #64748b;
         font-size: 14px;
-        color: #cbd5e1 !important;
-        margin: 0;
-        font-weight: 400;
-    }
-
-    /* 3. Executive Health Summary Card */
-    .summary-card-panel {
-        background-color: var(--secondary-background-color, #ffffff);
-        border-radius: 16px;
-        padding: 20px 28px;
-        border-left: 6px solid #6366f1;
-        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
-        margin-bottom: 24px;
-        border: 1px solid rgba(226, 232, 240, 0.8);
-    }
-    .summary-title {
-        font-size: 16px;
-        font-weight: 700;
-        color: var(--text-color);
-        margin-bottom: 10px;
-    }
-
-    /* 4. Executive Metric Cards dengan Colored Top Border */
-    .metric-card {
-        background-color: var(--secondary-background-color, #ffffff);
-        border-radius: 14px;
-        padding: 18px 22px;
-        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05);
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        position: relative;
-        overflow: hidden;
-        margin-bottom: 15px;
-    }
-    .metric-card::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-    }
-    .metric-total::before { background: #6366f1; }   /* Indigo */
-    .metric-close::before { background: #10b981; }   /* Emerald */
-    .metric-open::before { background: #f59e0b; }    /* Amber */
-    .metric-ng::before { background: #ef4444; }      /* Red */
-
-    .metric-label {
-        font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        margin-bottom: 8px;
-    }
-    .metric-val {
-        font-size: 32px;
-        font-weight: 800;
-        line-height: 1;
-        margin-bottom: 8px;
-        color: var(--text-color);
-    }
-    .metric-sub {
-        font-size: 12px;
-        color: #94a3b8;
-    }
-
-    /* 5. Modern Glass Container untuk Chart Plotly */
-    div[data-testid="stPlotlyChart"] {
-        background-color: var(--secondary-background-color, #ffffff);
-        border-radius: 16px;
-        padding: 16px;
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
         margin-bottom: 20px;
     }
 
-    /* 6. Custom Table Style */
-    .table-container {
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+    /* Sub-header dengan Garis Pembatas Biru */
+    .section-header {
+        color: #1370a6;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        border-bottom: 3px solid #1370a6;
+        padding-bottom: 5px;
+        margin-top: 15px;
+        margin-bottom: 15px;
     }
+
+    /* Tabel 5S Warna Biru & Border Abu-abu */
     .table-5s {
         width: 100%;
         border-collapse: collapse;
-        font-size: 13px;
+        margin-top: 12px;
+        margin-bottom: 10px;
+        font-size: 12px;
+        text-align: center;
+        font-family: Arial, sans-serif;
+        background-color: #ffffff;
     }
     .table-5s th {
-        background-color: #f8fafc;
-        color: #475569;
-        font-weight: 700;
-        padding: 12px 10px;
-        border-bottom: 2px solid #e2e8f0;
+        background-color: #1370a6;
+        color: white;
+        padding: 8px 4px;
+        border: 1px solid #0e527a;
+        font-weight: bold;
     }
     .table-5s td {
-        padding: 10px;
-        border-bottom: 1px solid #f1f5f9;
-        color: var(--text-color);
-        text-align: center;
+        border: 1px solid #e2e8f0;
+        padding: 6px 4px;
+        color: #334155;
     }
-    .judge-ok { background-color: rgba(16, 185, 129, 0.12); color: #059669; font-weight: 700; border-radius: 6px; }
-    .judge-ng { background-color: rgba(239, 68, 68, 0.12); color: #dc2626; font-weight: 700; border-radius: 6px; }
+    .bg-label { background-color: #f0f4f8; font-weight: bold; color: #111; text-align: left; padding-left: 10px !important; }
+    
+    .judge-ok { background-color: #a8f087; color: #1e5a00; font-weight: bold; }
+    .judge-ng { background-color: #ff5252; color: #ffffff; font-weight: bold; }
+
+    /* Box Kesimpulan */
+    .summary-box {
+        background-color: #ffffff;
+        border-left: 4px solid #1370a6;
+        border-top: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 12px 15px;
+        border-radius: 4px;
+        margin-top: 10px;
+        font-size: 13px;
+        color: #1a3038;
+        line-height: 1.5;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+
+    /* Box Kesimpulan Umum Keseluruhan */
+    .summary-box-global {
+        background-color: #e8f5e9;
+        border-left: 5px solid #2e7d32;
+        padding: 15px 20px;
+        border-radius: 6px;
+        margin-top: 25px;
+        font-size: 14px;
+        color: #1b5e20;
+        line-height: 1.6;
+    }
+
+    /* Badge Level 5S */
+    .badge-level {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-weight: bold;
+        font-size: 11px;
+        display: inline-block;
+        color: white;
+    }
+    .lvl-black { background-color: #2b2b2b; }
+    .lvl-bronze { background-color: #cd7f32; }
+    .lvl-silver { background-color: #8a9ba8; }
+    .lvl-gold { background-color: #d4af37; }
+
+    /* Card Box Analisa */
+    .analysis-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-top: 4px solid #d32f2f;
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+    .analysis-card h5 {
+        color: #b71c1c;
+        margin-top: 0;
+        font-weight: 700;
+    }
     </style>
 """, unsafe_allow_html=True)
+
 
 
 import os
@@ -306,47 +303,39 @@ def get_level_5s(avg_score):
     else:
         return "Black", "lvl-black"
 
-# ----------------- GRAFIK PLOTLY MODERN & ADAPTIF -----------------
+# ----------------- GRAFIK & TABEL BUILDER -----------------
 def create_exact_chart(x_labels, target_vals, actual_vals, title, is_kriteria=False):
     fig = go.Figure()
     
-    # Elemen Warna Modern (Soft Emerald & Soft Coral)
     bar_colors = []
     for act, tgt in zip(actual_vals, target_vals):
         try:
             act_num = float(act)
             tgt_num = float(tgt)
             if act_num >= tgt_num:
-                bar_colors.append('#10B981')  # Emerald Green
+                bar_colors.append('#a8f087')
             else:
-                bar_colors.append('#F43F5E')  # Rose / Soft Red
+                bar_colors.append('#ff5252')
         except (ValueError, TypeError):
-            bar_colors.append('#9CA3AF')  # Slate Gray
+            bar_colors.append('#e0e0e0')
     
-    # Bar Chart (Nilai Aktual)
     fig.add_trace(go.Bar(
         x=x_labels,
         y=actual_vals,
         name='Aktual',
-        marker=dict(
-            color=bar_colors,
-            line=dict(width=0),
-            opacity=0.9
-        ),
+        marker_color=bar_colors,
         text=actual_vals,
-        textposition='outside',
-        textfont=dict(size=11, weight='bold'),
-        width=0.4 if is_kriteria else 0.45
+        textposition='auto',
+        width=0.45 if is_kriteria else 0.55
     ))
     
-    # Line Chart (Nilai Target)
     fig.add_trace(go.Scatter(
         x=x_labels,
         y=target_vals,
         name='Target',
         mode='lines+markers',
-        line=dict(color='#6366F1', width=3, shape='spline'),  # Indigo
-        marker=dict(size=7, color='#4338CA', symbol='circle')
+        line=dict(color='#0099ff', width=3, shape='spline'),
+        marker=dict(size=9, color='#0099ff')
     ))
     
     clean_targets = [float(v) for v in target_vals if str(v).replace('.','',1).isdigit()]
@@ -354,38 +343,50 @@ def create_exact_chart(x_labels, target_vals, actual_vals, title, is_kriteria=Fa
     max_val = max(max(clean_targets, default=10), max(clean_actuals, default=10))
     
     fig.update_layout(
-        title=dict(
-            text=f"<b>{title}</b>", 
-            font=dict(size=15, family="Inter, sans-serif")
-        ),
-        height=340,
-        margin=dict(l=15, r=15, t=50, b=15),
+        title=dict(text=f"<b>{title}</b>", font=dict(size=14, color='#004d73')),
+        height=300,
+        margin=dict(l=20, r=20, t=40, b=20),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         showlegend=True,
-        legend=dict(
-            orientation="h", 
-            yanchor="bottom", 
-            y=1.02, 
-            xanchor="right", 
-            x=1,
-            font=dict(size=12)
-        ),
-        xaxis=dict(
-            showgrid=False, 
-            type='category',
-            tickfont=dict(size=11)
-        ),
-        yaxis=dict(
-            title="Nilai Patrol", 
-            showgrid=True, 
-            gridcolor='rgba(156, 163, 175, 0.15)',
-            range=[0, max_val * 1.28]
-        ),
-        hovermode="x unified"
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        xaxis=dict(showgrid=False, type='category'),
+        yaxis=dict(title="Nilai Patrol", showgrid=True, gridcolor='#e2e8f0', range=[0, max_val * 1.25])
     )
     return fig
 
+def render_exact_table(columns_header, targets, actuals, first_col_label="Line"):
+    html = '<table class="table-5s">'
+    html += f'<tr><th style="width: 10%;">{first_col_label}</th>'
+    for col in columns_header:
+        html += f'<th>{col}</th>'
+    html += '</tr>'
+    
+    html += '<tr><td class="bg-label">Target</td>'
+    for t in targets:
+        html += f'<td>{t if t is not None and str(t) != "" else "-"}</td>'
+    html += '</tr>'
+    
+    html += '<tr><td class="bg-label">Aktual</td>'
+    for a in actuals:
+        html += f'<td>{a if a is not None and str(a) != "" else "-"}</td>'
+    html += '</tr>'
+    
+    html += '<tr><td class="bg-label">Judge</td>'
+    for a, t in zip(actuals, targets):
+        try:
+            act_num = float(a)
+            tgt_num = float(t)
+            if act_num >= tgt_num:
+                html += '<td class="judge-ok">OK</td>'
+            else:
+                html += '<td class="judge-ng">NG</td>'
+        except (ValueError, TypeError):
+            html += '<td>-</td>'
+    html += '</tr>'
+    
+    html += '</table>'
+    return html
 
 def create_pareto_chart(kriteria_list, scores_list):
     df_pareto = pd.DataFrame({'Kriteria': kriteria_list, 'Nilai': scores_list})
@@ -397,49 +398,42 @@ def create_pareto_chart(kriteria_list, scores_list):
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     
-    # Bar Chart Pareto
     fig.add_trace(
         go.Bar(
             x=df_pareto['Kriteria'],
             y=df_pareto['Nilai'],
             name="Rata-rata Nilai",
-            marker=dict(color='#F43F5E', opacity=0.85),
+            marker_color='#ff5252',
             text=df_pareto['Nilai'].round(2),
-            textposition='outside',
-            textfont=dict(size=10, weight='bold')
+            textposition='auto'
         ),
         secondary_y=False
     )
     
-    # Line Chart Kumulatif (%)
     fig.add_trace(
         go.Scatter(
             x=df_pareto['Kriteria'],
             y=df_pareto['CumPercentage'],
             name="Kumulatif (%)",
             mode='lines+markers',
-            line=dict(color='#0EA5E9', width=2.5, shape='spline'),
-            marker=dict(size=6, color='#0284C7')
+            line=dict(color='#004d73', width=2),
+            marker=dict(size=6)
         ),
         secondary_y=True
     )
 
     fig.update_layout(
-        title=dict(
-            text="<b>DIAGRAM PARETO: EVALUASI KRITERIA TERRENDAH</b>", 
-            font=dict(size=14, family="Inter, sans-serif")
-        ),
+        title=dict(text="<b>DIAGRAM PARETO: EVALUASI KRITERIA DENGAN PERFORMA TERRENDAH</b>", font=dict(size=14, color='#004d73')),
         height=380,
-        margin=dict(l=15, r=15, t=50, b=80),
+        margin=dict(l=20, r=20, t=40, b=80),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        xaxis=dict(showgrid=False, tickangle=-30, tickfont=dict(size=10))
+        xaxis=dict(showgrid=False, tickangle=-30)
     )
-    
-    fig.update_yaxes(title_text="Rata-rata Nilai", secondary_y=False, showgrid=True, gridcolor='rgba(156, 163, 175, 0.15)')
-    fig.update_yaxes(title_text="Persentase Kumulatif (%)", secondary_y=True, range=[0, 115], showgrid=False)
+    fig.update_yaxes(title_text="Rata-rata Nilai Kriteria", secondary_y=False, showgrid=True, gridcolor='#e2e8f0')
+    fig.update_yaxes(title_text="Persentase Kumulatif (%)", secondary_y=True, range=[0, 110], showgrid=False)
     
     return fig
 
@@ -486,74 +480,21 @@ else:
             dataframe.to_excel(writer, sheet_name='Data_5S', index=False)
         return output.getvalue()
 
-# ==========================================
-# 1. HERO HEADER (FULL WIDTH)
-# ==========================================
-st.markdown("""
-    <div class="hero-header">
-        <div class="hero-title">⚡ Executive Dashboard Patrol 5S</div>
-        <div class="hero-subtitle">Real-time Performance Metrics & Area Operational Improvement Analytics</div>
-    </div>
-""", unsafe_allow_html=True)
+    # Header
+    col_title, col_export = st.columns([3, 1])
+    with col_title:
+        st.markdown('<div class="dashboard-title">🧹 DASHBOARD PERFORMANCE PATROL 5S</div>', unsafe_allow_html=True)
+        st.markdown('<div class="dashboard-subtitle">Monitoring Real-time Pencapaian Patrol 5S Terintegrasi Full Data Google Sheets</div>', unsafe_allow_html=True)
 
-
-# ==========================================
-# 2. METRIC CARDS (4 KOLOM FULL WIDTH)
-# ==========================================
-m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-
-with m_col1:
-    st.markdown("""
-        <div class="metric-card metric-total">
-            <div class="metric-label" style="color: #6366f1;">💡 TOTAL AUDIT</div>
-            <div class="metric-val">100%</div>
-            <div class="metric-sub">Seluruh Line Terjangkau</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-with m_col2:
-    st.markdown("""
-        <div class="metric-card metric-close">
-            <div class="metric-label" style="color: #10b981;">✅ PENCAPAIAN OK</div>
-            <div class="metric-val">85%</div>
-            <div class="metric-sub">Memenuhi Target 5S</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-with m_col3:
-    st.markdown("""
-        <div class="metric-card metric-open">
-            <div class="metric-label" style="color: #f59e0b;">⏳ ITEM REVIEW (NG)</div>
-            <div class="metric-val">15%</div>
-            <div class="metric-sub">Perlu Tindakan Lanjutan</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-with m_col4:
-    st.markdown("""
-        <div class="metric-card metric-ng">
-            <div class="metric-label" style="color: #ef4444;">⚠️ OPEN CAPA</div>
-            <div class="metric-val">3</div>
-            <div class="metric-sub">Temuan Kritis Belum Close</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-
-# ==========================================
-# 3. TABS UTAMA (FULL WIDTH - OUTSIDE COLUMNS)
-# ==========================================
-tab_summary, tab_details = st.tabs(["📊 Executive Summary (By Month & By Area)", "🏭 Detail 11 Kriteria"])
-
-with tab_summary:
-    # Seluruh grafik dan tabel By Month & By Area ditaruh di sini
-    filtered_months = [m for m in months_data if m in selected_months]
-    indices_m = [months_data.index(m) for m in filtered_months]
-    t_m = [targets_m_data[i] if i < len(targets_m_data) else 0 for i in indices_m]
-    a_m = [actuals_m_data[i] if i < len(actuals_m_data) else 0 for i in indices_m]
-
-    if filtered_months and t_m and a_m:
-        st.plotly_chart(create_exact_chart(filtered_months, t_m, a_m, "PENCAPAIAN AKTIVITAS 5S BY MONTH"), use_container_width=True)
-        st.markdown(render_exact_table(filtered_months, t_m, a_m, "Bulan"), unsafe_allow_html=True)
+    with col_export:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.download_button(
+            label="📥 Download Excel Report",
+            data=generate_excel_download(df),
+            file_name="Laporan_Patrol_5S_Realtime.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
 
     st.markdown("---")
 
@@ -650,49 +591,7 @@ with tab_summary:
 
     # ---------------- BARIS 1: BY ALL (PENCAPAIAN BY MONTH) ----------------
     st.markdown('<div class="section-header">BY ALL (PENCAPAIAN BY MONTH)</div>', unsafe_allow_html=True)
-    def render_exact_table(columns_header, targets, actuals, first_col_label="Line"):
-        try:
-            html = '<div class="table-container"><table class="table-5s">'
-            html += f'<tr><th style="width: 12%;">{first_col_label}</th>'
-            for col in columns_header:
-                html += f'<th>{col}</th>'
-            html += '</tr>'
-        
-            # Baris Target
-            html += '<tr><td class="bg-label">Target</td>'
-            for t in targets:
-                val_display = "-" if t is None or pd.isna(t) or str(t).strip() == "" else t
-                html += f'<td>{val_display}</td>'
-            html += '</tr>'
-        
-            # Baris Aktual
-            html += '<tr><td class="bg-label">Aktual</td>'
-            for a in actuals:
-                val_display = "-" if a is None or pd.isna(a) or str(a).strip() == "" else a
-                html += f'<td>{val_display}</td>'
-            html += '</tr>'
-        
-            # Baris Judge (OK / NG)
-            html += '<tr><td class="bg-label">Judge</td>'
-            for a, t in zip(actuals, targets):
-                try:
-                    if a is None or t is None or pd.isna(a) or pd.isna(t):
-                        html += '<td>-</td>'
-                        continue
-                    act_num = float(a)
-                    tgt_num = float(t)
-                    if act_num >= tgt_num:
-                        html += '<td class="judge-ok">OK</td>'
-                    else:
-                        html += '<td class="judge-ng">NG</td>'
-                except (ValueError, TypeError):
-                    html += '<td>-</td>'
-            html += '</tr>'
-        
-            html += '</table></div>'
-            return html
-        except Exception as e:
-            return f'<div style="color: red; padding: 10px;">Gagal memuat tabel: {str(e)}</div>'
+    
     if filtered_months and t_m and a_m:
         st.plotly_chart(create_exact_chart(filtered_months, t_m, a_m, "PENCAPAIAN AKTIVITAS 5S BY MONTH"), use_container_width=True)
         st.markdown(render_exact_table(filtered_months, t_m, a_m, "Bulan"), unsafe_allow_html=True)
