@@ -486,7 +486,9 @@ else:
             dataframe.to_excel(writer, sheet_name='Data_5S', index=False)
         return output.getvalue()
 
-# --- HERO HEADER & METRIC CARDS MEWAH (KODE BARU) ---
+# ==========================================
+# 1. HERO HEADER (FULL WIDTH)
+# ==========================================
 st.markdown("""
     <div class="hero-header">
         <div class="hero-title">⚡ Executive Dashboard Patrol 5S</div>
@@ -494,10 +496,13 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# 4 Metric Cards Berwarna
-col1, col2, col3, col4 = st.columns(4)
 
-with col1:
+# ==========================================
+# 2. METRIC CARDS (4 KOLOM FULL WIDTH)
+# ==========================================
+m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+
+with m_col1:
     st.markdown("""
         <div class="metric-card metric-total">
             <div class="metric-label" style="color: #6366f1;">💡 TOTAL AUDIT</div>
@@ -506,7 +511,7 @@ with col1:
         </div>
     """, unsafe_allow_html=True)
 
-with col2:
+with m_col2:
     st.markdown("""
         <div class="metric-card metric-close">
             <div class="metric-label" style="color: #10b981;">✅ PENCAPAIAN OK</div>
@@ -515,7 +520,7 @@ with col2:
         </div>
     """, unsafe_allow_html=True)
 
-with col3:
+with m_col3:
     st.markdown("""
         <div class="metric-card metric-open">
             <div class="metric-label" style="color: #f59e0b;">⏳ ITEM REVIEW (NG)</div>
@@ -524,7 +529,7 @@ with col3:
         </div>
     """, unsafe_allow_html=True)
 
-with col4:
+with m_col4:
     st.markdown("""
         <div class="metric-card metric-ng">
             <div class="metric-label" style="color: #ef4444;">⚠️ OPEN CAPA</div>
@@ -532,6 +537,23 @@ with col4:
             <div class="metric-sub">Temuan Kritis Belum Close</div>
         </div>
     """, unsafe_allow_html=True)
+
+
+# ==========================================
+# 3. TABS UTAMA (FULL WIDTH - OUTSIDE COLUMNS)
+# ==========================================
+tab_summary, tab_details = st.tabs(["📊 Executive Summary (By Month & By Area)", "🏭 Detail 11 Kriteria"])
+
+with tab_summary:
+    # Seluruh grafik dan tabel By Month & By Area ditaruh di sini
+    filtered_months = [m for m in months_data if m in selected_months]
+    indices_m = [months_data.index(m) for m in filtered_months]
+    t_m = [targets_m_data[i] if i < len(targets_m_data) else 0 for i in indices_m]
+    a_m = [actuals_m_data[i] if i < len(actuals_m_data) else 0 for i in indices_m]
+
+    if filtered_months and t_m and a_m:
+        st.plotly_chart(create_exact_chart(filtered_months, t_m, a_m, "PENCAPAIAN AKTIVITAS 5S BY MONTH"), use_container_width=True)
+        st.markdown(render_exact_table(filtered_months, t_m, a_m, "Bulan"), unsafe_allow_html=True)
 
     st.markdown("---")
 
