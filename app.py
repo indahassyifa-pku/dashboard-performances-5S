@@ -486,21 +486,52 @@ else:
             dataframe.to_excel(writer, sheet_name='Data_5S', index=False)
         return output.getvalue()
 
-    # Header
-    col_title, col_export = st.columns([3, 1])
-    with col_title:
-        st.markdown('<div class="dashboard-title">🧹 DASHBOARD PERFORMANCE PATROL 5S</div>', unsafe_allow_html=True)
-        st.markdown('<div class="dashboard-subtitle">Monitoring Real-time Pencapaian Patrol 5S Terintegrasi Full Data Google Sheets</div>', unsafe_allow_html=True)
+# --- HERO HEADER & METRIC CARDS MEWAH (KODE BARU) ---
+st.markdown("""
+    <div class="hero-header">
+        <div class="hero-title">⚡ Executive Dashboard Patrol 5S</div>
+        <div class="hero-subtitle">Real-time Performance Metrics & Area Operational Improvement Analytics</div>
+    </div>
+""", unsafe_allow_html=True)
 
-    with col_export:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.download_button(
-            label="📥 Download Excel Report",
-            data=generate_excel_download(df),
-            file_name="Laporan_Patrol_5S_Realtime.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+# 4 Metric Cards Berwarna
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.markdown("""
+        <div class="metric-card metric-total">
+            <div class="metric-label" style="color: #6366f1;">💡 TOTAL AUDIT</div>
+            <div class="metric-val">100%</div>
+            <div class="metric-sub">Seluruh Line Terjangkau</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown("""
+        <div class="metric-card metric-close">
+            <div class="metric-label" style="color: #10b981;">✅ PENCAPAIAN OK</div>
+            <div class="metric-val">85%</div>
+            <div class="metric-sub">Memenuhi Target 5S</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown("""
+        <div class="metric-card metric-open">
+            <div class="metric-label" style="color: #f59e0b;">⏳ ITEM REVIEW (NG)</div>
+            <div class="metric-val">15%</div>
+            <div class="metric-sub">Perlu Tindakan Lanjutan</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with col4:
+    st.markdown("""
+        <div class="metric-card metric-ng">
+            <div class="metric-label" style="color: #ef4444;">⚠️ OPEN CAPA</div>
+            <div class="metric-val">3</div>
+            <div class="metric-sub">Temuan Kritis Belum Close</div>
+        </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("---")
 
