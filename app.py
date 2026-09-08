@@ -584,6 +584,50 @@ with tab_summary:
 
     # ---------------- BARIS 1: BY ALL (PENCAPAIAN BY MONTH) ----------------
     st.markdown('<div class="section-header">BY ALL (PENCAPAIAN BY MONTH)</div>', unsafe_allow_html=True)
+
+    def render_exact_table(columns_header, targets, actuals, first_col_label="Line"):
+    try:
+        html = '<div class="table-container"><table class="table-5s">'
+        html += f'<tr><th style="width: 12%;">{first_col_label}</th>'
+        for col in columns_header:
+            html += f'<th>{col}</th>'
+        html += '</tr>'
+        
+        # Baris Target
+        html += '<tr><td class="bg-label">Target</td>'
+        for t in targets:
+            val_display = "-" if t is None or pd.isna(t) or str(t).strip() == "" else t
+            html += f'<td>{val_display}</td>'
+        html += '</tr>'
+        
+        # Baris Aktual
+        html += '<tr><td class="bg-label">Aktual</td>'
+        for a in actuals:
+            val_display = "-" if a is None or pd.isna(a) or str(a).strip() == "" else a
+            html += f'<td>{val_display}</td>'
+        html += '</tr>'
+        
+        # Baris Judge (OK / NG)
+        html += '<tr><td class="bg-label">Judge</td>'
+        for a, t in zip(actuals, targets):
+            try:
+                if a is None or t is None or pd.isna(a) or pd.isna(t):
+                    html += '<td>-</td>'
+                    continue
+                act_num = float(a)
+                tgt_num = float(t)
+                if act_num >= tgt_num:
+                    html += '<td class="judge-ok">OK</td>'
+                else:
+                    html += '<td class="judge-ng">NG</td>'
+            except (ValueError, TypeError):
+                html += '<td>-</td>'
+        html += '</tr>'
+        
+        html += '</table></div>'
+        return html
+    except Exception as e:
+        return f'<div style="color: red; padding: 10px;">Gagal memuat tabel: {str(e)}</div>'
     
     if filtered_months and t_m and a_m:
         st.plotly_chart(create_exact_chart(filtered_months, t_m, a_m, "PENCAPAIAN AKTIVITAS 5S BY MONTH"), use_container_width=True)
