@@ -14,132 +14,111 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom Styling
+# Custom Styling Adaptif (Dark & Light Mode Support)
 st.markdown("""
     <style>
-    /* Background Utama Aplikasi (Nuansa Putih-Abu-Kebiruan) */
-    .stApp {
-        background-color: #f4f7fa;
-    }
-
-    /* Background Sidebar/Menu Kiri */
-    [data-testid="stSidebar"] {
-        background-color: #ebf1f5;
-        border-right: 1px solid #cbd5e1;
-    }
-
-    /* Judul Utama */
+    /* Menggunakan variabel CSS bawaan Streamlit untuk kompatibilitas Dark & Light Mode */
+    
     .dashboard-title {
-        color: #1370a6;
+        color: var(--primary-color, #1370a6);
         font-size: 28px;
         font-weight: 800;
         margin-bottom: 5px;
     }
 
-    /* Subtitle */
     .dashboard-subtitle {
-        color: #64748b;
+        color: var(--text-color);
+        opacity: 0.7;
         font-size: 14px;
         margin-bottom: 20px;
     }
 
-    /* Sub-header dengan Garis Pembatas Biru */
     .section-header {
-        color: #1370a6;
-        font-size: 20px;
-        font-weight: 800;
+        color: var(--primary-color, #1370a6);
+        font-size: 18px;
+        font-weight: 700;
         letter-spacing: 0.5px;
-        border-bottom: 3px solid #1370a6;
+        border-bottom: 2px solid var(--primary-color, #1370a6);
         padding-bottom: 5px;
-        margin-top: 15px;
+        margin-top: 20px;
         margin-bottom: 15px;
     }
 
-    /* Tabel 5S Warna Biru & Border Abu-abu */
+    /* Tabel 5S Adaptif */
+    .table-container {
+        overflow-x: auto;
+    }
     .table-5s {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 12px;
-        margin-bottom: 10px;
+        margin-top: 10px;
+        margin-bottom: 15px;
         font-size: 12px;
         text-align: center;
-        font-family: Arial, sans-serif;
-        background-color: #ffffff;
+        background-color: var(--secondary-background-color, rgba(255, 255, 255, 0.05));
+        border-radius: 8px;
+        overflow: hidden;
     }
     .table-5s th {
-        background-color: #1370a6;
-        color: white;
-        padding: 8px 4px;
-        border: 1px solid #0e527a;
-        font-weight: bold;
+        background-color: var(--primary-color, #1370a6);
+        color: #ffffff !important;
+        padding: 10px 6px;
+        font-weight: 600;
+        border: 1px solid rgba(128, 128, 128, 0.2);
     }
     .table-5s td {
-        border: 1px solid #e2e8f0;
-        padding: 6px 4px;
-        color: #334155;
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        padding: 8px 6px;
+        color: var(--text-color);
     }
-    .bg-label { background-color: #f0f4f8; font-weight: bold; color: #111; text-align: left; padding-left: 10px !important; }
+    .bg-label { 
+        background-color: rgba(128, 128, 128, 0.1); 
+        font-weight: bold; 
+        color: var(--text-color); 
+        text-align: left; 
+        padding-left: 10px !important; 
+    }
     
-    .judge-ok { background-color: #a8f087; color: #1e5a00; font-weight: bold; }
-    .judge-ng { background-color: #ff5252; color: #ffffff; font-weight: bold; }
+    .judge-ok { background-color: rgba(46, 125, 50, 0.2); color: #2e7d32; font-weight: bold; }
+    .judge-ng { background-color: rgba(198, 40, 40, 0.2); color: #c62828; font-weight: bold; }
 
-    /* Box Kesimpulan */
+    /* Box Kesimpulan Adaptif */
     .summary-box {
-        background-color: #ffffff;
-        border-left: 4px solid #1370a6;
-        border-top: 1px solid #e2e8f0;
-        border-right: 1px solid #e2e8f0;
-        border-bottom: 1px solid #e2e8f0;
-        padding: 12px 15px;
-        border-radius: 4px;
-        margin-top: 10px;
+        background-color: var(--secondary-background-color, rgba(255, 255, 255, 0.05));
+        border-left: 4px solid var(--primary-color, #1370a6);
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin-top: 12px;
         font-size: 13px;
-        color: #1a3038;
-        line-height: 1.5;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        color: var(--text-color);
+        line-height: 1.6;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 
-    /* Box Kesimpulan Umum Keseluruhan */
     .summary-box-global {
-        background-color: #e8f5e9;
+        background-color: rgba(46, 125, 50, 0.1);
         border-left: 5px solid #2e7d32;
         padding: 15px 20px;
-        border-radius: 6px;
+        border-radius: 8px;
         margin-top: 25px;
         font-size: 14px;
-        color: #1b5e20;
+        color: var(--text-color);
         line-height: 1.6;
     }
 
     /* Badge Level 5S */
     .badge-level {
-        padding: 4px 10px;
+        padding: 4px 12px;
         border-radius: 12px;
         font-weight: bold;
         font-size: 11px;
         display: inline-block;
-        color: white;
+        color: white !important;
     }
-    .lvl-black { background-color: #2b2b2b; }
-    .lvl-bronze { background-color: #cd7f32; }
-    .lvl-silver { background-color: #8a9ba8; }
-    .lvl-gold { background-color: #d4af37; }
-
-    /* Card Box Analisa */
-    .analysis-card {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-top: 4px solid #d32f2f;
-        border-radius: 6px;
-        padding: 15px;
-        margin-bottom: 15px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-    }
-    .analysis-card h5 {
-        color: #b71c1c;
-        margin-top: 0;
-        font-weight: 700;
-    }
+    .lvl-black { background-color: #374151; }
+    .lvl-bronze { background-color: #d97706; }
+    .lvl-silver { background-color: #6b7280; }
+    .lvl-gold { background-color: #eab308; }
     </style>
 """, unsafe_allow_html=True)
 
