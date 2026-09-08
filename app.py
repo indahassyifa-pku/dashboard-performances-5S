@@ -626,7 +626,7 @@ with tab_summary:
             html += '</table></div>'
             return html
         except Exception as e:
-        return f'<div style="color: red; padding: 10px;">Gagal memuat tabel: {str(e)}</div>'
+            return f'<div style="color: red; padding: 10px;">Gagal memuat tabel: {str(e)}</div>'
     if filtered_months and t_m and a_m:
         st.plotly_chart(create_exact_chart(filtered_months, t_m, a_m, "PENCAPAIAN AKTIVITAS 5S BY MONTH"), use_container_width=True)
         st.markdown(render_exact_table(filtered_months, t_m, a_m, "Bulan"), unsafe_allow_html=True)
