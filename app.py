@@ -5,6 +5,7 @@ from plotly.subplots import make_subplots
 import io
 import datetime
 import os
+import re
 
 # ----------------- KONFIGURASI HALAMAN -----------------
 st.set_page_config(
@@ -134,6 +135,17 @@ st.markdown("""
 # ----------------- LINK GOOGLE SHEETS DATA UTAMA (PUBLISH / READ-ONLY) -----------------
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQU_jpdzrymx_0mJKGVDopip0DPhnmDLIbsTHgVnqgaJZZayJUp-UPF1MF6H6soCA/pub?output=csv"
 
+# Fungsi Konversi URL khusus untuk membaca Sheet tertentu secara akurat
+def get_export_url(base_url, sheet_name="Sheet3"):
+    if "/d/e/" in base_url:
+        # Jika link berbentuk Published URL web
+        return base_url.split('/pub')[0] + f"/pub?sheet={sheet_name}&output=csv"
+    elif "/d/" in base_url:
+        # Jika link berbentuk Document Edit/View URL biasa
+        sheet_id = re.search(r'/d/([a-zA-Z0-9-_]+)', base_url).group(1)
+        return f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+    return base_url
+
 @st.cache_data(ttl=10)
 def load_data(url):
     try:
@@ -141,10 +153,25 @@ def load_data(url):
         df_load.columns = df_load.columns.astype(str).str.strip()
         return df_load
     except Exception as e:
-        st.error(f"Gagal mengambil data dari Google Sheets: {e}")
+        st.error(f"Gagal mengambil data Sheet 1 dari Google Sheets: {e}")
         return pd.DataFrame()
 
+# Load Data Sheet 1 Utama
 df = load_data(SHEET_URL)
+
+# Load Data Sheet 3 Khusus Tab 3
+@st.cache_data(ttl=10)
+def load_sheet3_data(base_url):
+    try:
+        s3_url = get_export_url(base_url, sheet_name="Sheet3")
+        df_s3 = pd.read_csv(s3_url)
+        df_s3.columns = df_s3.columns.astype(str).str.strip()
+        return df_s3
+    except Exception as e:
+        st.warning(f"Sistem gagal mengakses Sheet 3 secara spesifik via URL export. Mencoba fallback data...")
+        return pd.DataFrame()
+
+df_sheet3 = load_sheet3_data(SHEET_URL)
 
 # ----------------- STORAGE LOKAL CSV UNTUK CAPA LOG -----------------
 CAPA_CSV_FILE = "capa_log_database.csv"
@@ -480,7 +507,7 @@ else:
     tab_summary, tab_details, tab_monthly_area, tab_pareto, tab_action = st.tabs([
         "📊 Executive Summary (By Month & By Area)", 
         "🏭 Detail 11 Kriteria Penilaian (By Line)", 
-        "📅 Tren Bulanan Per Area (Jan - Dec)",
+        "📅 Tren Bulanan Per Area (Sheet 3)",
         "📈 Pareto Analisis Kriteria Rendah",
         "🛠️ CAPA Tracking"
     ])
@@ -712,121 +739,103 @@ else:
                 render_line_analysis(title_line, key_line, t_k, a_k)
                 st.markdown("<hr style='margin: 30px 0; border: 0; border-top: 2px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
-# --- TAB 3: REKAP TREN BULANAN PER AREA (SHEET 3) ---
+    # --- TAB 3: REKAP TREN BULANAN PER AREA (100% EXCLUSIVE SHEET 3 DATA) ---
     with tab_monthly_area:
         st.markdown('<div class="section-header">REKAPITULASI TREN PENCAPAIAN 5S PER AREA (JANUARI - DESEMBER)</div>', unsafe_allow_html=True)
         
-        # 1. BACA DATA SPESIFIK SHEET 3 TANPA MEMPENGARUHI TAB LAIN
-        @st.cache_data(ttl=10)
-        def load_data_sheet3(base_url):
-            try:
-                # Membuat URL khusus untuk membaca Sheet3 dari spreadsheet
-                if "pub?output=csv" in base_url:
-                    s3_url = base_url.replace("pub?output=csv", "pub?sheet=Sheet3&output=csv")
-                else:
-                    s3_url = base_url
-                df_s3 = pd.read_csv(s3_url)
-                df_s3.columns = df_s3.columns.astype(str).str.strip()
-                return df_s3
-            except Exception:
-                return pd.DataFrame()
-
-        df_sheet3 = load_data_sheet3(SHEET_URL)
-
-        # Fallback jika URL publik tidak otomatis beralih sheet (menggunakan df utama)
         if df_sheet3.empty:
-            df_sheet3 = df.copy()
-
-        all_cols_s3 = df_sheet3.columns.tolist()
-        
-        # 2. IDENTIFIKASI KOLOM TARGET & AKTUAL AREA DI SHEET 3
-        area_pairs_s3 = []
-        for col in all_cols_s3:
-            if 'target' in col.lower() and not ('month' in col.lower()):
-                clean_area = col.replace('Target', '').replace('target', '').strip()
-                if clean_area and not any(kw in clean_area.lower() for kw in EXCLUDE_KEYWORDS):
-                    act_col = next((c for c in all_cols_s3 if clean_area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
-                    if act_col:
-                        area_pairs_s3.append((clean_area, col, act_col))
-
-        filtered_pairs_s3 = [p for p in area_pairs_s3 if not selected_departments or any(sd.lower() in p[0].lower() or p[0].lower() in sd.lower() for sd in selected_departments)]
-        if not filtered_pairs_s3:
-            filtered_pairs_s3 = area_pairs_s3
-
-        # 3. KESIMPULAN KHUSUS TAB 3 (REKAP NILAI BULANAN PER AREA)
-        summary_stats = []
-        for area_name, c_t, c_a in filtered_pairs_s3:
-            t_vals = [float(v) for v in df_sheet3[c_t].dropna() if str(v).replace('.','',1).isdigit()]
-            a_vals = [float(v) for v in df_sheet3[c_a].dropna() if str(v).replace('.','',1).isdigit()]
+            st.error("⚠️ Data Sheet 3 tidak berhasil terbaca. Pastikan spreadsheet memiliki tab lembar kerja bernama 'Sheet3' yang terhubung.")
+        else:
+            all_cols_s3 = df_sheet3.columns.tolist()
             
-            avg_a = sum(a_vals) / len(a_vals) if a_vals else 0.0
-            avg_t = sum(t_vals) / len(t_vals) if t_vals else 4.0
-            ok_months = sum(1 for a_v, t_v in zip(a_vals, t_vals) if a_v >= t_v)
-            
-            summary_stats.append({
-                "area": area_name,
-                "avg_actual": avg_a,
-                "avg_target": avg_t,
-                "ok_months": ok_months,
-                "total_months": len(a_vals)
-            })
+            # Deteksi Pasangan Kolom Target & Aktual KHUSUS dari Sheet 3
+            area_pairs_s3 = []
+            for col in all_cols_s3:
+                if 'target' in col.lower() and not ('month' in col.lower()):
+                    clean_area = col.replace('Target', '').replace('target', '').strip()
+                    if clean_area and not any(kw in clean_area.lower() for kw in EXCLUDE_KEYWORDS):
+                        act_col = next((c for c in all_cols_s3 if clean_area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
+                        if act_col:
+                            area_pairs_s3.append((clean_area, col, act_col))
 
-        if summary_stats:
-            best_area = max(summary_stats, key=lambda x: x['avg_actual'])
-            lowest_area = min(summary_stats, key=lambda x: x['avg_actual'])
-            consistent_areas = [s['area'] for s in summary_stats if s['ok_months'] == s['total_months'] and s['total_months'] > 0]
-            consistent_str = ", ".join(consistent_areas) if consistent_areas else "Belum ada area yang 100% konsisten tiap bulan"
+            filtered_pairs_s3 = [p for p in area_pairs_s3 if not selected_departments or any(sd.lower() in p[0].lower() or p[0].lower() in sd.lower() for sd in selected_departments)]
+            if not filtered_pairs_s3:
+                filtered_pairs_s3 = area_pairs_s3
 
-            st.markdown(f"""
-                <div class="summary-box" style="background-color: var(--secondary-background-color, #ffffff); border-left: 5px solid #004d73; margin-bottom: 25px;">
-                    <h4 style="margin: 0 0 8px 0; color: #004d73; font-size: 15px;">📋 RANGKUMAN REKAPITULASI TREN BULANAN PER AREA (SHEET 3)</h4>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.6;">
-                        <tr>
-                            <td style="width: 32%; font-weight: bold;">Area Performa Terbaik (Jan - Dec)</td>
-                            <td>: <b>{best_area['area'].upper()}</b> (Rata-rata Skor: <b style="color:#2e7d32;">{best_area['avg_actual']:.2f}</b>)</td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: bold;">Area Perlu Perhatian Khusus</td>
-                            <td>: <b>{lowest_area['area'].upper()}</b> (Rata-rata Skor: <b style="color:#c62828;">{lowest_area['avg_actual']:.2f}</b>)</td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: bold;">Area 100% Target Achieved (Tiap Bulan)</td>
-                            <td>: <b>{consistent_str}</b></td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: bold;">Catatan Rekapitulasi Sheet 3</td>
-                            <td>: Tab ini khusus menyajikan rekap tren pencapaian 10 area dari bulan Januari hingga Desember berdasarkan data akumulasi Sheet 3 (tanpa rincian kriteria).</td>
-                        </tr>
-                    </table>
-                </div>
-            """, unsafe_allow_html=True)
-
-        # 4. RENDERING GRAFIK & TABEL DARI DATA SHEET 3 (GRID 2 KOLOM)
-        for i in range(0, len(filtered_pairs_s3), 2):
-            cols_m = st.columns(2)
-            
-            # Area 1
-            area_name1, col_t1, col_a1 = filtered_pairs_s3[i]
-            t_m1 = df_sheet3[col_t1].dropna().tolist()
-            a_m1 = df_sheet3[col_a1].dropna().tolist()
-            months_label1 = ALL_MONTHS[:len(a_m1)] if len(a_m1) <= 12 else ALL_MONTHS
-            
-            with cols_m[0]:
-                st.plotly_chart(create_exact_chart(months_label1, t_m1, a_m1, f"REKAP TREN BULANAN 5S - {area_name1.upper()}"), use_container_width=True)
-                st.markdown(render_exact_table(months_label1, t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
-            
-            # Area 2 (Jika Ada)
-            if i + 1 < len(filtered_pairs_s3):
-                area_name2, col_t2, col_a2 = filtered_pairs_s3[i+1]
-                t_m2 = df_sheet3[col_t2].dropna().tolist()
-                a_m2 = df_sheet3[col_a2].dropna().tolist()
-                months_label2 = ALL_MONTHS[:len(a_m2)] if len(a_m2) <= 12 else ALL_MONTHS
+            # Hitung Statistik Kesimpulan Khusus Sheet 3
+            summary_stats = []
+            for area_name, c_t, c_a in filtered_pairs_s3:
+                t_vals = [float(v) for v in df_sheet3[c_t].dropna() if str(v).replace('.','',1).isdigit()]
+                a_vals = [float(v) for v in df_sheet3[c_a].dropna() if str(v).replace('.','',1).isdigit()]
                 
-                with cols_m[1]:
-                    st.plotly_chart(create_exact_chart(months_label2, t_m2, a_m2, f"REKAP TREN BULANAN 5S - {area_name2.upper()}"), use_container_width=True)
-                    st.markdown(render_exact_table(months_label2, t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
-            
-            st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
+                avg_a = sum(a_vals) / len(a_vals) if a_vals else 0.0
+                avg_t = sum(t_vals) / len(t_vals) if t_vals else 4.0
+                ok_months = sum(1 for a_v, t_v in zip(a_vals, t_vals) if a_v >= t_v)
+                
+                summary_stats.append({
+                    "area": area_name,
+                    "avg_actual": avg_a,
+                    "avg_target": avg_t,
+                    "ok_months": ok_months,
+                    "total_months": len(a_vals)
+                })
+
+            if summary_stats:
+                best_area = max(summary_stats, key=lambda x: x['avg_actual'])
+                lowest_area = min(summary_stats, key=lambda x: x['avg_actual'])
+                consistent_areas = [s['area'] for s in summary_stats if s['ok_months'] == s['total_months'] and s['total_months'] > 0]
+                consistent_str = ", ".join(consistent_areas) if consistent_areas else "Belum ada area yang 100% konsisten tiap bulan"
+
+                st.markdown(f"""
+                    <div class="summary-box" style="background-color: var(--secondary-background-color, #ffffff); border-left: 5px solid #004d73; margin-bottom: 25px;">
+                        <h4 style="margin: 0 0 8px 0; color: #004d73; font-size: 15px;">📋 RANGKUMAN REKAPITULASI TREN BULANAN PER AREA (SHEET 3)</h4>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.6;">
+                            <tr>
+                                <td style="width: 32%; font-weight: bold;">Area Performa Terbaik (Jan - Dec)</td>
+                                <td>: <b>{best_area['area'].upper()}</b> (Rata-rata Skor: <b style="color:#2e7d32;">{best_area['avg_actual']:.2f}</b>)</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">Area Perlu Perhatian Khusus</td>
+                                <td>: <b>{lowest_area['area'].upper()}</b> (Rata-rata Skor: <b style="color:#c62828;">{lowest_area['avg_actual']:.2f}</b>)</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">Area 100% Target Achieved (Tiap Bulan)</td>
+                                <td>: <b>{consistent_str}</b></td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">Catatan Rekapitulasi Sheet 3</td>
+                                <td>: Data Target & Aktual pada tab ini murni ditarik langsung dari <b>Sheet 3</b> spreadsheet, menyajikan tren rekapitulasi pencapaian bulanan (Januari–Desember) per area.</td>
+                            </tr>
+                        </table>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            # Rendering Grafik & Tabel Rekap 2 Kolom (10 Area)
+            for i in range(0, len(filtered_pairs_s3), 2):
+                cols_m = st.columns(2)
+                
+                # Area 1
+                area_name1, col_t1, col_a1 = filtered_pairs_s3[i]
+                t_m1 = df_sheet3[col_t1].dropna().tolist()
+                a_m1 = df_sheet3[col_a1].dropna().tolist()
+                months_label1 = ALL_MONTHS[:len(a_m1)] if len(a_m1) <= 12 else ALL_MONTHS
+                
+                with cols_m[0]:
+                    st.plotly_chart(create_exact_chart(months_label1, t_m1, a_m1, f"REKAP TREN BULANAN 5S - {area_name1.upper()}"), use_container_width=True)
+                    st.markdown(render_exact_table(months_label1, t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
+                
+                # Area 2 (Jika Ada)
+                if i + 1 < len(filtered_pairs_s3):
+                    area_name2, col_t2, col_a2 = filtered_pairs_s3[i+1]
+                    t_m2 = df_sheet3[col_t2].dropna().tolist()
+                    a_m2 = df_sheet3[col_a2].dropna().tolist()
+                    months_label2 = ALL_MONTHS[:len(a_m2)] if len(a_m2) <= 12 else ALL_MONTHS
+                    
+                    with cols_m[1]:
+                        st.plotly_chart(create_exact_chart(months_label2, t_m2, a_m2, f"REKAP TREN BULANAN 5S - {area_name2.upper()}"), use_container_width=True)
+                        st.markdown(render_exact_table(months_label2, t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
+                
+                st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
     # --- TAB 4: PARETO & AI RECOMMENDATION ---
     with tab_pareto:
@@ -1059,5 +1068,8 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-    with st.expander("📋 Lihat Raw Data Google Sheets"):
+    with st.expander("📋 Lihat Raw Data Google Sheets (Sheet 1)"):
         st.dataframe(df, use_container_width=True)
+
+    with st.expander("📋 Lihat Raw Data Google Sheets (Sheet 3)"):
+        st.dataframe(df_sheet3, use_container_width=True)
