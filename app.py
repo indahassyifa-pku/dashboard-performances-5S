@@ -504,6 +504,7 @@ else:
             c_t = next((c for c in all_columns if area.lower() in c.lower() and 'target' in c.lower()), None)
             c_a = next((c for c in all_columns if area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
             
+            # Tambahkan pengecekan `and c_a in df.columns` dan `and c_t in df.columns`
             if c_a and c_a in df.columns:
                 total_actual_sum += df[c_a].dropna().sum()
             if c_t and c_t in df.columns:
