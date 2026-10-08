@@ -739,47 +739,56 @@ else:
                 render_line_analysis(title_line, key_line, t_k, a_k)
                 st.markdown("<hr style='margin: 30px 0; border: 0; border-top: 2px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
-    # --- TAB 3: REKAP TREN BULANAN PER AREA (100% EXCLUSIVE SHEET 3 DATA) ---
+# --- TAB 3: TREN BULANAN PER AREA (KHUSUS SHEET 3: KOLOM C - V) ---
     with tab_monthly_area:
         st.markdown('<div class="section-header">REKAPITULASI TREN PENCAPAIAN 5S PER AREA (JANUARI - DESEMBER)</div>', unsafe_allow_html=True)
         
         if df_sheet3.empty:
-            st.error("⚠️ Data Sheet 3 tidak berhasil terbaca. Pastikan spreadsheet memiliki tab lembar kerja bernama 'Sheet3' yang terhubung.")
+            st.error("⚠️ Data Sheet 3 tidak berhasil terbaca. Pastikan spreadsheet memiliki tab lembar kerja bernama 'Sheet3'.")
         else:
-            all_cols_s3 = df_sheet3.columns.tolist()
-            
-            # Deteksi Pasangan Kolom Target & Aktual KHUSUS dari Sheet 3
-            area_pairs_s3 = []
-            for col in all_cols_s3:
-                if 'target' in col.lower() and not ('month' in col.lower()):
-                    clean_area = col.replace('Target', '').replace('target', '').strip()
-                    if clean_area and not any(kw in clean_area.lower() for kw in EXCLUDE_KEYWORDS):
-                        act_col = next((c for c in all_cols_s3 if clean_area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
-                        if act_col:
-                            area_pairs_s3.append((clean_area, col, act_col))
+            # 1. MAPPING EKSLUSIF KOLOM C:V (Indeks 2 s/d 21 pada Pandas Dataframe)
+            # Sesuai urutan: PVC, SMS, STEX, BTEX, DFAS, PPEX, WH, SHP, QA/QC, MTC
+            AREA_MAPPING_SHEET3 = [
+                ("PVC", 2, 3),    # Kolom C (Target) & D (Aktual)
+                ("SMS", 4, 5),    # Kolom E (Target) & F (Aktual)
+                ("STEX", 6, 7),   # Kolom G (Target) & H (Aktual)
+                ("BTEX", 8, 9),   # Kolom I (Target) & J (Aktual)
+                ("DFAS", 10, 11), # Kolom K (Target) & L (Aktual)
+                ("PPEX", 12, 13), # Kolom M (Target) & N (Aktual)
+                ("WH", 14, 15),   # Kolom O (Target) & P (Aktual)
+                ("SHP", 16, 17),  # Kolom Q (Target) & R (Aktual)
+                ("QA/QC", 18, 19),# Kolom S (Target) & T (Aktual)
+                ("MTC", 20, 21)   # Kolom U (Target) & V (Aktual)
+            ]
 
-            filtered_pairs_s3 = [p for p in area_pairs_s3 if not selected_departments or any(sd.lower() in p[0].lower() or p[0].lower() in sd.lower() for sd in selected_departments)]
-            if not filtered_pairs_s3:
-                filtered_pairs_s3 = area_pairs_s3
+            # Filter area sesuai pilihan di sidebar jika ada
+            filtered_mapping = [
+                m for m in AREA_MAPPING_SHEET3 
+                if not selected_departments or any(sd.lower() in m[0].lower() or m[0].lower() in sd.lower() for sd in selected_departments)
+            ]
+            if not filtered_mapping:
+                filtered_mapping = AREA_MAPPING_SHEET3
 
-            # Hitung Statistik Kesimpulan Khusus Sheet 3
+            # 2. KALKULASI STATISTIK KESIMPULAN REKAP TAB 3
             summary_stats = []
-            for area_name, c_t, c_a in filtered_pairs_s3:
-                t_vals = [float(v) for v in df_sheet3[c_t].dropna() if str(v).replace('.','',1).isdigit()]
-                a_vals = [float(v) for v in df_sheet3[c_a].dropna() if str(v).replace('.','',1).isdigit()]
-                
-                avg_a = sum(a_vals) / len(a_vals) if a_vals else 0.0
-                avg_t = sum(t_vals) / len(t_vals) if t_vals else 4.0
-                ok_months = sum(1 for a_v, t_v in zip(a_vals, t_vals) if a_v >= t_v)
-                
-                summary_stats.append({
-                    "area": area_name,
-                    "avg_actual": avg_a,
-                    "avg_target": avg_t,
-                    "ok_months": ok_months,
-                    "total_months": len(a_vals)
-                })
+            for area_name, idx_t, idx_a in filtered_mapping:
+                if df_sheet3.shape[1] > max(idx_t, idx_a):
+                    t_vals = [float(v) for v in df_sheet3.iloc[:, idx_t].dropna() if str(v).replace('.','',1).isdigit()]
+                    a_vals = [float(v) for v in df_sheet3.iloc[:, idx_a].dropna() if str(v).replace('.','',1).isdigit()]
+                    
+                    avg_a = sum(a_vals) / len(a_vals) if a_vals else 0.0
+                    avg_t = sum(t_vals) / len(t_vals) if t_vals else 4.0
+                    ok_months = sum(1 for a_v, t_v in zip(a_vals, t_vals) if a_v >= t_v)
+                    
+                    summary_stats.append({
+                        "area": area_name,
+                        "avg_actual": avg_a,
+                        "avg_target": avg_t,
+                        "ok_months": ok_months,
+                        "total_months": len(a_vals)
+                    })
 
+            # TAMPILKAN BOX KESIMPULAN REKAP TAB 3
             if summary_stats:
                 best_area = max(summary_stats, key=lambda x: x['avg_actual'])
                 lowest_area = min(summary_stats, key=lambda x: x['avg_actual'])
@@ -804,36 +813,38 @@ else:
                             </tr>
                             <tr>
                                 <td style="font-weight: bold;">Catatan Rekapitulasi Sheet 3</td>
-                                <td>: Data Target & Aktual pada tab ini murni ditarik langsung dari <b>Sheet 3</b> spreadsheet, menyajikan tren rekapitulasi pencapaian bulanan (Januari–Desember) per area.</td>
+                                <td>: Data Target & Aktual diambil dari Sheet 3 (Kolom C sampai V) untuk menyajikan rekap tren penilaian bulanan (Januari–Desember) di 10 area.</td>
                             </tr>
                         </table>
                     </div>
                 """, unsafe_allow_html=True)
 
-            # Rendering Grafik & Tabel Rekap 2 Kolom (10 Area)
-            for i in range(0, len(filtered_pairs_s3), 2):
+            # 3. RENDERING GRAFIK & TABEL (GRID 2 KOLOM)
+            for i in range(0, len(filtered_mapping), 2):
                 cols_m = st.columns(2)
                 
                 # Area 1
-                area_name1, col_t1, col_a1 = filtered_pairs_s3[i]
-                t_m1 = df_sheet3[col_t1].dropna().tolist()
-                a_m1 = df_sheet3[col_a1].dropna().tolist()
-                months_label1 = ALL_MONTHS[:len(a_m1)] if len(a_m1) <= 12 else ALL_MONTHS
-                
-                with cols_m[0]:
-                    st.plotly_chart(create_exact_chart(months_label1, t_m1, a_m1, f"REKAP TREN BULANAN 5S - {area_name1.upper()}"), use_container_width=True)
-                    st.markdown(render_exact_table(months_label1, t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
+                area_name1, idx_t1, idx_a1 = filtered_mapping[i]
+                if df_sheet3.shape[1] > max(idx_t1, idx_a1):
+                    t_m1 = df_sheet3.iloc[:, idx_t1].dropna().tolist()
+                    a_m1 = df_sheet3.iloc[:, idx_a1].dropna().tolist()
+                    months_label1 = ALL_MONTHS[:len(a_m1)] if len(a_m1) <= 12 else ALL_MONTHS
+                    
+                    with cols_m[0]:
+                        st.plotly_chart(create_exact_chart(months_label1, t_m1, a_m1, f"REKAP TREN BULANAN 5S - {area_name1.upper()}"), use_container_width=True)
+                        st.markdown(render_exact_table(months_label1, t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
                 
                 # Area 2 (Jika Ada)
-                if i + 1 < len(filtered_pairs_s3):
-                    area_name2, col_t2, col_a2 = filtered_pairs_s3[i+1]
-                    t_m2 = df_sheet3[col_t2].dropna().tolist()
-                    a_m2 = df_sheet3[col_a2].dropna().tolist()
-                    months_label2 = ALL_MONTHS[:len(a_m2)] if len(a_m2) <= 12 else ALL_MONTHS
-                    
-                    with cols_m[1]:
-                        st.plotly_chart(create_exact_chart(months_label2, t_m2, a_m2, f"REKAP TREN BULANAN 5S - {area_name2.upper()}"), use_container_width=True)
-                        st.markdown(render_exact_table(months_label2, t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
+                if i + 1 < len(filtered_mapping):
+                    area_name2, idx_t2, idx_a2 = filtered_mapping[i+1]
+                    if df_sheet3.shape[1] > max(idx_t2, idx_a2):
+                        t_m2 = df_sheet3.iloc[:, idx_t2].dropna().tolist()
+                        a_m2 = df_sheet3.iloc[:, idx_a2].dropna().tolist()
+                        months_label2 = ALL_MONTHS[:len(a_m2)] if len(a_m2) <= 12 else ALL_MONTHS
+                        
+                        with cols_m[1]:
+                            st.plotly_chart(create_exact_chart(months_label2, t_m2, a_m2, f"REKAP TREN BULANAN 5S - {area_name2.upper()}"), use_container_width=True)
+                            st.markdown(render_exact_table(months_label2, t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
                 
                 st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
