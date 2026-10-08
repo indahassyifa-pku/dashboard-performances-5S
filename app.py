@@ -839,47 +839,39 @@ else:
     with tab_monthly_area:
         st.markdown('<div class="section-header">REKAPITULASI TREN PENCAPAIAN 5S PER AREA (JANUARI - DESEMBER)</div>', unsafe_allow_html=True)
         
-        # 1. BACA DATA DARI SHEET 3 SECARA SPESIFIK
-        # Parameter 'sheet=Sheet3' dipasang agar Google Sheets mempublikasikan data dari Sheet3
-        SHEET3_URL = SHEET_URL + "&sheet=Sheet3" if "sheet=" not in SHEET_URL else SHEET_URL
+        # Gunakan Dataframe utama yang berhasil terbaca sistem
+        df_tab3 = df.copy()
         
-        @st.cache_data(ttl=10)
-        def load_sheet3_data(url):
-            try:
-                df_s3 = pd.read_csv(url)
-                df_s3.columns = df_s3.columns.astype(str).str.strip()
-                return df_s3
-            except Exception:
-                return pd.DataFrame()
-
-        df_sheet3 = load_sheet3_data(SHEET3_URL)
-
-        # Jika Sheet3 tidak terbaca atau kosong, fallback ke potongan iloc 32:53 dari df utama
-        if df_sheet3.empty and df.shape[1] >= 53:
-            df_sheet3 = df.iloc[:, 32:53].copy()
-
-        if not df_sheet3.empty:
-            all_cols_s3 = df_sheet3.columns.tolist()
+        if df_tab3.empty:
+            st.error("⚠️ Data tidak ditemukan. Pastikan koneksi ke Google Sheets berjalan dengan baik.")
+        else:
+            all_cols_t3 = df_tab3.columns.tolist()
             
-            # Deteksi pasangan area (Target & Aktual) pada Sheet3
-            area_pairs_s3 = []
-            for col in all_cols_s3:
+            # 1. OTOMATIS CARI PASANGAN KOLOM TARGET & AKTUAL AREA
+            area_pairs_t3 = []
+            for col in all_cols_t3:
+                # Cari kolom yang memuat kata 'target' (dan bukan target bulanan global)
                 if 'target' in col.lower() and not ('month' in col.lower()):
                     clean_area = col.replace('Target', '').replace('target', '').strip()
                     if clean_area and not any(kw in clean_area.lower() for kw in EXCLUDE_KEYWORDS):
-                        act_col = next((c for c in all_cols_s3 if clean_area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
+                        # Cari pasangan kolom Aktual/Score untuk area yang sama
+                        act_col = next((c for c in all_cols_t3 if clean_area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
                         if act_col:
-                            area_pairs_s3.append((clean_area, col, act_col))
+                            area_pairs_t3.append((clean_area, col, act_col))
 
-            filtered_pairs_s3 = [p for p in area_pairs_s3 if not selected_departments or any(sd.lower() in p[0].lower() or p[0].lower() in sd.lower() for sd in selected_departments)]
-            if not filtered_pairs_s3:
-                filtered_pairs_s3 = area_pairs_s3
+            # Filter berdasarkan area yang dipilih di sidebar (jika ada)
+            filtered_pairs_t3 = [
+                p for p in area_pairs_t3 
+                if not selected_departments or any(sd.lower() in p[0].lower() or p[0].lower() in sd.lower() for sd in selected_departments)
+            ]
+            if not filtered_pairs_t3:
+                filtered_pairs_t3 = area_pairs_t3
 
-            # 2. HITUNG STATISTIK UNTUK BOX KESIMPULAN REKAP TAB 3
+            # 2. HITUNG STATISTIK KESIMPULAN REKAP TAB 3 (JAN - DEC)
             summary_stats = []
-            for area_name, c_t, c_a in filtered_pairs_s3:
-                t_vals = [float(v) for v in df_sheet3[c_t].dropna() if str(v).replace('.','',1).isdigit()]
-                a_vals = [float(v) for v in df_sheet3[c_a].dropna() if str(v).replace('.','',1).isdigit()]
+            for area_name, c_t, c_a in filtered_pairs_t3:
+                t_vals = [float(v) for v in df_tab3[c_t].dropna() if str(v).replace('.','',1).isdigit()]
+                a_vals = [float(v) for v in df_tab3[c_a].dropna() if str(v).replace('.','',1).isdigit()]
                 
                 avg_a = sum(a_vals) / len(a_vals) if a_vals else 0.0
                 avg_t = sum(t_vals) / len(t_vals) if t_vals else 4.0
@@ -893,7 +885,7 @@ else:
                     "total_months": len(a_vals)
                 })
 
-            # TAMPILKAN BOX KESIMPULAN REKAP TAB 3
+            # TAMPILKAN BOX KESIMPULAN KHUSUS TAB 3
             if summary_stats:
                 best_area = max(summary_stats, key=lambda x: x['avg_actual'])
                 lowest_area = min(summary_stats, key=lambda x: x['avg_actual'])
@@ -902,7 +894,7 @@ else:
 
                 st.markdown(f"""
                     <div class="summary-box" style="background-color: var(--secondary-background-color, #ffffff); border-left: 5px solid #004d73; margin-bottom: 25px;">
-                        <h4 style="margin: 0 0 8px 0; color: #004d73; font-size: 15px;">📋 RANGKUMAN REKAPITULASI TREN BULANAN PER AREA (SHEET 3)</h4>
+                        <h4 style="margin: 0 0 8px 0; color: #004d73; font-size: 15px;">📋 RANGKUMAN REKAPITULASI TREN BULANAN PER AREA (JAN - DEC)</h4>
                         <table style="width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.6;">
                             <tr>
                                 <td style="width: 32%; font-weight: bold;">Area Performa Terbaik (Jan - Dec)</td>
@@ -917,21 +909,21 @@ else:
                                 <td>: <b>{consistent_str}</b></td>
                             </tr>
                             <tr>
-                                <td style="font-weight: bold;">Catatan Rekapitulasi Sheet 3</td>
-                                <td>: Berbeda dari tab lain yang menampilkan kriteria detail, tab ini khusus menyajikan rekap pencapaian kumulatif 10 area dari bulan Januari hingga Desember.</td>
+                                <td style="font-weight: bold;">Catatan Rekapitulasi</td>
+                                <td>: Tab ini menyajikan rekapitulasi tren penilaian bulanan dari Januari hingga Desember per area secara otomatis dari dataset yang terbaca.</td>
                             </tr>
                         </table>
                     </div>
                 """, unsafe_allow_html=True)
 
-            # 3. RENDERING GRAFIK & TABEL (GRID 2 KOLOM)
-            for i in range(0, len(filtered_pairs_s3), 2):
+            # 3. RENDERING GRAFIK & TABEL REKAP BULANAN (GRID 2 KOLOM)
+            for i in range(0, len(filtered_pairs_t3), 2):
                 cols_m = st.columns(2)
                 
                 # Area 1
-                area_name1, col_t1, col_a1 = filtered_pairs_s3[i]
-                t_m1 = df_sheet3[col_t1].dropna().tolist()
-                a_m1 = df_sheet3[col_a1].dropna().tolist()
+                area_name1, col_t1, col_a1 = filtered_pairs_t3[i]
+                t_m1 = df_tab3[col_t1].dropna().tolist()
+                a_m1 = df_tab3[col_a1].dropna().tolist()
                 months_label1 = ALL_MONTHS[:len(a_m1)] if len(a_m1) <= 12 else ALL_MONTHS
                 
                 with cols_m[0]:
@@ -939,10 +931,10 @@ else:
                     st.markdown(render_exact_table(months_label1, t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
                 
                 # Area 2 (Jika Ada)
-                if i + 1 < len(filtered_pairs_s3):
-                    area_name2, col_t2, col_a2 = filtered_pairs_s3[i+1]
-                    t_m2 = df_sheet3[col_t2].dropna().tolist()
-                    a_m2 = df_sheet3[col_a2].dropna().tolist()
+                if i + 1 < len(filtered_pairs_t3):
+                    area_name2, col_t2, col_a2 = filtered_pairs_t3[i+1]
+                    t_m2 = df_tab3[col_t2].dropna().tolist()
+                    a_m2 = df_tab3[col_a2].dropna().tolist()
                     months_label2 = ALL_MONTHS[:len(a_m2)] if len(a_m2) <= 12 else ALL_MONTHS
                     
                     with cols_m[1]:
@@ -950,8 +942,6 @@ else:
                         st.markdown(render_exact_table(months_label2, t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
                 
                 st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
-        else:
-            st.error("Gagal memuat data dari Sheet 3. Pastikan spreadsheet memiliki Sheet 3 yang telah dipublikasikan.")
 
     # --- TAB 4: PARETO & AI RECOMMENDATION ---
     with tab_pareto:
