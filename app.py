@@ -835,113 +835,70 @@ else:
                 render_line_analysis(title_line, key_line, t_k, a_k)
                 st.markdown("<hr style='margin: 30px 0; border: 0; border-top: 2px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
-# --- TAB 3: REKAP TREN BULANAN PER AREA (JAN - DEC) ---
+# --- TAB 3: TREN BULANAN PER AREA (DATA GAMBAR 2) ---
     with tab_monthly_area:
         st.markdown('<div class="section-header">REKAPITULASI TREN PENCAPAIAN 5S PER AREA (JANUARI - DESEMBER)</div>', unsafe_allow_html=True)
         
-        # Gunakan Dataframe utama yang berhasil terbaca sistem
-        df_tab3 = df.copy()
+        # 1. FILTER KHUSUS DATA GAMBAR 2 (BULAN BERJALAN)
+        # Mencari kolom yang memuat nama bulan / "Bulan Berjalan"
+        col_bulan = next((c for c in df.columns if 'bulan' in c.lower()), None)
         
-        if df_tab3.empty:
-            st.error("⚠️ Data tidak ditemukan. Pastikan koneksi ke Google Sheets berjalan dengan baik.")
+        if col_bulan:
+            # Ambil baris yang berisi data bulan (January - December / 12 baris)
+            df_g2 = df[df[col_bulan].notna() & df[col_bulan].astype(str).str.contains('January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Mei|Jun|Jul|Aug|Sep|Oct|Nov|Dec', case=False, na=False)].copy()
         else:
-            all_cols_t3 = df_tab3.columns.tolist()
+            # Jika tidak ada header khusus, ambil baris setelah baris kriteria (posisi Gambar 2)
+            df_g2 = df.dropna(subset=[df.columns[1]]).tail(12).copy()
+
+        # Daftar 10 Area
+        TARGET_AREAS = ["PVC", "SMS", "STEX", "BTEX", "DFAS", "PPEX", "WH", "SHP", "QA/QC", "MTC"]
+        
+        area_pairs_tab3 = []
+        for area_code in TARGET_AREAS:
+            col_t = next((c for c in df_g2.columns if area_code.lower() in c.lower() and 'target' in c.lower()), None)
+            col_a = next((c for c in df_g2.columns if area_code.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
             
-            # 1. OTOMATIS CARI PASANGAN KOLOM TARGET & AKTUAL AREA
-            area_pairs_t3 = []
-            for col in all_cols_t3:
-                # Cari kolom yang memuat kata 'target' (dan bukan target bulanan global)
-                if 'target' in col.lower() and not ('month' in col.lower()):
-                    clean_area = col.replace('Target', '').replace('target', '').strip()
-                    if clean_area and not any(kw in clean_area.lower() for kw in EXCLUDE_KEYWORDS):
-                        # Cari pasangan kolom Aktual/Score untuk area yang sama
-                        act_col = next((c for c in all_cols_t3 if clean_area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
-                        if act_col:
-                            area_pairs_t3.append((clean_area, col, act_col))
+            if col_t and col_a:
+                area_pairs_tab3.append((area_code, col_t, col_a))
 
-            # Filter berdasarkan area yang dipilih di sidebar (jika ada)
-            filtered_pairs_t3 = [
-                p for p in area_pairs_t3 
-                if not selected_departments or any(sd.lower() in p[0].lower() or p[0].lower() in sd.lower() for sd in selected_departments)
-            ]
-            if not filtered_pairs_t3:
-                filtered_pairs_t3 = area_pairs_t3
+        filtered_pairs_tab3 = [
+            p for p in area_pairs_tab3 
+            if not selected_departments or any(sd.lower() in p[0].lower() or p[0].lower() in sd.lower() for sd in selected_departments)
+        ]
+        if not filtered_pairs_tab3:
+            filtered_pairs_tab3 = area_pairs_tab3
 
-            # 2. HITUNG STATISTIK KESIMPULAN REKAP TAB 3 (JAN - DEC)
-            summary_stats = []
-            for area_name, c_t, c_a in filtered_pairs_t3:
-                t_vals = [float(v) for v in df_tab3[c_t].dropna() if str(v).replace('.','',1).isdigit()]
-                a_vals = [float(v) for v in df_tab3[c_a].dropna() if str(v).replace('.','',1).isdigit()]
-                
-                avg_a = sum(a_vals) / len(a_vals) if a_vals else 0.0
-                avg_t = sum(t_vals) / len(t_vals) if t_vals else 4.0
-                ok_months = sum(1 for a_v, t_v in zip(a_vals, t_vals) if a_v >= t_v)
-                
-                summary_stats.append({
-                    "area": area_name,
-                    "avg_actual": avg_a,
-                    "avg_target": avg_t,
-                    "ok_months": ok_months,
-                    "total_months": len(a_vals)
-                })
+        # 2. RENDER RINGKASAN & GRAFIK UNTUK TAB 3
+        if not df_g2.empty and filtered_pairs_tab3:
+            # Ambil label bulan dari data Gambar 2
+            months_label = df_g2[col_bulan].tolist() if col_bulan else ALL_MONTHS
 
-            # TAMPILKAN BOX KESIMPULAN KHUSUS TAB 3
-            if summary_stats:
-                best_area = max(summary_stats, key=lambda x: x['avg_actual'])
-                lowest_area = min(summary_stats, key=lambda x: x['avg_actual'])
-                consistent_areas = [s['area'] for s in summary_stats if s['ok_months'] == s['total_months'] and s['total_months'] > 0]
-                consistent_str = ", ".join(consistent_areas) if consistent_areas else "Belum ada area yang 100% konsisten tiap bulan"
-
-                st.markdown(f"""
-                    <div class="summary-box" style="background-color: var(--secondary-background-color, #ffffff); border-left: 5px solid #004d73; margin-bottom: 25px;">
-                        <h4 style="margin: 0 0 8px 0; color: #004d73; font-size: 15px;">📋 RANGKUMAN REKAPITULASI TREN BULANAN PER AREA (JAN - DEC)</h4>
-                        <table style="width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.6;">
-                            <tr>
-                                <td style="width: 32%; font-weight: bold;">Area Performa Terbaik (Jan - Dec)</td>
-                                <td>: <b>{best_area['area'].upper()}</b> (Rata-rata Skor: <b style="color:#2e7d32;">{best_area['avg_actual']:.2f}</b>)</td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight: bold;">Area Perlu Perhatian Khusus</td>
-                                <td>: <b>{lowest_area['area'].upper()}</b> (Rata-rata Skor: <b style="color:#c62828;">{lowest_area['avg_actual']:.2f}</b>)</td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight: bold;">Area 100% Target Achieved (Tiap Bulan)</td>
-                                <td>: <b>{consistent_str}</b></td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight: bold;">Catatan Rekapitulasi</td>
-                                <td>: Tab ini menyajikan rekapitulasi tren penilaian bulanan dari Januari hingga Desember per area secara otomatis dari dataset yang terbaca.</td>
-                            </tr>
-                        </table>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            # 3. RENDERING GRAFIK & TABEL REKAP BULANAN (GRID 2 KOLOM)
-            for i in range(0, len(filtered_pairs_t3), 2):
+            # Render Grid 2 Kolom Grafik & Tabel
+            for i in range(0, len(filtered_pairs_tab3), 2):
                 cols_m = st.columns(2)
                 
                 # Area 1
-                area_name1, col_t1, col_a1 = filtered_pairs_t3[i]
-                t_m1 = df_tab3[col_t1].dropna().tolist()
-                a_m1 = df_tab3[col_a1].dropna().tolist()
-                months_label1 = ALL_MONTHS[:len(a_m1)] if len(a_m1) <= 12 else ALL_MONTHS
+                area_name1, col_t1, col_a1 = filtered_pairs_tab3[i]
+                t_m1 = df_g2[col_t1].dropna().tolist()
+                a_m1 = df_g2[col_a1].dropna().tolist()
                 
                 with cols_m[0]:
-                    st.plotly_chart(create_exact_chart(months_label1, t_m1, a_m1, f"REKAP TREN BULANAN 5S - {area_name1.upper()}"), use_container_width=True)
-                    st.markdown(render_exact_table(months_label1, t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
+                    st.plotly_chart(create_exact_chart(months_label[:len(a_m1)], t_m1, a_m1, f"REKAP TREN BULANAN 5S - {area_name1.upper()}"), use_container_width=True)
+                    st.markdown(render_exact_table(months_label[:len(a_m1)], t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
                 
                 # Area 2 (Jika Ada)
-                if i + 1 < len(filtered_pairs_t3):
-                    area_name2, col_t2, col_a2 = filtered_pairs_t3[i+1]
-                    t_m2 = df_tab3[col_t2].dropna().tolist()
-                    a_m2 = df_tab3[col_a2].dropna().tolist()
-                    months_label2 = ALL_MONTHS[:len(a_m2)] if len(a_m2) <= 12 else ALL_MONTHS
+                if i + 1 < len(filtered_pairs_tab3):
+                    area_name2, col_t2, col_a2 = filtered_pairs_tab3[i+1]
+                    t_m2 = df_g2[col_t2].dropna().tolist()
+                    a_m2 = df_g2[col_a2].dropna().tolist()
                     
                     with cols_m[1]:
-                        st.plotly_chart(create_exact_chart(months_label2, t_m2, a_m2, f"REKAP TREN BULANAN 5S - {area_name2.upper()}"), use_container_width=True)
-                        st.markdown(render_exact_table(months_label2, t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
+                        st.plotly_chart(create_exact_chart(months_label[:len(a_m2)], t_m2, a_m2, f"REKAP TREN BULANAN 5S - {area_name2.upper()}"), use_container_width=True)
+                        st.markdown(render_exact_table(months_label[:len(a_m2)], t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
                 
                 st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
+        else:
+            st.warning("Data tren bulanan (Gambar 2) tidak terdeteksi di dalam spreadsheet.")
 
     # --- TAB 4: PARETO & AI RECOMMENDATION ---
     with tab_pareto:
