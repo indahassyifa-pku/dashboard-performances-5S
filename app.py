@@ -835,34 +835,53 @@ else:
                 render_line_analysis(title_line, key_line, t_k, a_k)
                 st.markdown("<hr style='margin: 30px 0; border: 0; border-top: 2px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
-    # --- TAB 3: TREN BULANAN PER AREA (JAN - DEC) ---
+# --- TAB 3: TREN BULANAN PER AREA (JAN - DEC) ---
     with tab_monthly_area:
         st.markdown('<div class="section-header">MONITORING TREN PENCAPAIAN PER AREA (BULAN JANUARY - DECEMBER)</div>', unsafe_allow_html=True)
         
+        # Filter khusus mengambil area yang valid untuk data bulanan
         filtered_selected_areas = [a for a in selected_departments if not any(kw in a.lower() for kw in EXCLUDE_KEYWORDS)]
         
         if not filtered_selected_areas:
             st.warning("Silakan pilih minimal satu area pada sidebar filter.")
         else:
-            # Rendering dalam bentuk Grid 2 Kolom untuk 10 Area
+            # Rendering dalam bentuk Grid 2 Kolom untuk Area
             for i in range(0, len(filtered_selected_areas), 2):
                 cols_m = st.columns(2)
                 
-                # Area 2 (Jika Ada)
+                # --- AREA 1 ---
+                area_1 = filtered_selected_areas[i]
+                
+                # Mengutamakan pencocokan kolom persis (seperti SMS.1) untuk data bulanan area
+                c_t1 = next((c for c in all_columns if c.lower() == f"target {area_1.lower()}" or (area_1.lower() in c.lower() and 'target' in c.lower())), None)
+                c_a1 = next((c for c in all_columns if c.lower() == f"aktual {area_1.lower()}" or (area_1.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai']))), None)
+                
+                # Ekstrak data 12 bulan (Januari - Desember)
+                t_m1 = df[c_t1].dropna().tolist() if c_t1 else [0]*len(ALL_MONTHS)
+                a_m1 = df[c_a1].dropna().tolist() if c_a1 else [0]*len(ALL_MONTHS)
+                
+                # Batasi sesuai jumlah data bulan
+                months_label1 = months_data[:len(a_m1)] if len(months_data) >= len(a_m1) else ALL_MONTHS
+                
+                with cols_m[0]:
+                    st.plotly_chart(create_exact_chart(months_label1, t_m1, a_m1, f"TREN BULANAN 5S - {area_1.upper()}"), use_container_width=True)
+                    st.markdown(render_exact_table(months_label1, t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
+                
+                # --- AREA 2 (JIKA ADA) ---
                 if i + 1 < len(filtered_selected_areas):
                     area_2 = filtered_selected_areas[i+1]
-                    c_t2 = next((c for c in all_columns if area_2.lower() in c.lower() and 'target' in c.lower()), None)
-                    c_a2 = next((c for c in all_columns if area_2.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
                     
-                    t_m2 = df[c_t2].tolist() if c_t2 else [0]*len(ALL_MONTHS)
-                    a_m2 = df[c_a2].tolist() if c_a2 else [0]*len(ALL_MONTHS)
+                    c_t2 = next((c for c in all_columns if c.lower() == f"target {area_2.lower()}" or (area_2.lower() in c.lower() and 'target' in c.lower())), None)
+                    c_a2 = next((c for c in all_columns if c.lower() == f"aktual {area_2.lower()}" or (area_2.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai']))), None)
+                    
+                    t_m2 = df[c_t2].dropna().tolist() if c_t2 else [0]*len(ALL_MONTHS)
+                    a_m2 = df[c_a2].dropna().tolist() if c_a2 else [0]*len(ALL_MONTHS)
                     
                     months_label2 = months_data[:len(a_m2)] if len(months_data) >= len(a_m2) else ALL_MONTHS
                     
                     with cols_m[1]:
                         st.plotly_chart(create_exact_chart(months_label2, t_m2, a_m2, f"TREN BULANAN 5S - {area_2.upper()}"), use_container_width=True)
                         st.markdown(render_exact_table(months_label2, t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
-                        render_line_analysis(area_2, area_2, t_m2, a_m2)
                 
                 st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
