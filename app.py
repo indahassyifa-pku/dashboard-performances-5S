@@ -848,23 +848,6 @@ else:
             for i in range(0, len(filtered_selected_areas), 2):
                 cols_m = st.columns(2)
                 
-                # Area 1
-                area_1 = filtered_selected_areas[i]
-                c_t1 = next((c for c in all_columns if area_1.lower() in c.lower() and 'target' in c.lower()), None)
-                c_a1 = next((c for c in all_columns if area_1.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
-                
-                # Ekstrak data 12 bulan dari df utama
-                t_m1 = df[c_t1].tolist() if c_t1 else [0]*len(ALL_MONTHS)
-                a_m1 = df[c_a1].tolist() if c_a1 else [0]*len(ALL_MONTHS)
-                
-                # Batasi sepanjang bulan
-                months_label1 = months_data[:len(a_m1)] if len(months_data) >= len(a_m1) else ALL_MONTHS
-                
-                with cols_m[0]:
-                    st.plotly_chart(create_exact_chart(months_label1, t_m1, a_m1, f"TREN BULANAN 5S - {area_1.upper()}"), use_container_width=True)
-                    st.markdown(render_exact_table(months_label1, t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
-                    render_line_analysis(area_1, area_1, t_m1, a_m1)
-                
                 # Area 2 (Jika Ada)
                 if i + 1 < len(filtered_selected_areas):
                     area_2 = filtered_selected_areas[i+1]
