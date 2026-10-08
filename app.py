@@ -847,6 +847,33 @@ else:
                 
                 st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
+            # 3. RENDERING GRAFIK & TABEL REKAP BULANAN (GRID 2 KOLOM)
+            for i in range(0, len(filtered_pairs_t3), 2):
+                cols_m = st.columns(2)
+                
+                # Area 1
+                area_name1, col_t1, col_a1 = filtered_pairs_t3[i]
+                t_m1 = df_tab3[col_t1].dropna().tolist()
+                a_m1 = df_tab3[col_a1].dropna().tolist()
+                months_label1 = ALL_MONTHS[:len(a_m1)] if len(a_m1) <= 12 else ALL_MONTHS
+                
+                with cols_m[0]:
+                    st.plotly_chart(create_exact_chart(months_label1, t_m1, a_m1, f"REKAP TREN BULANAN 5S - {area_name1.upper()}"), use_container_width=True)
+                    st.markdown(render_exact_table(months_label1, t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
+                
+                # Area 2 (Jika Ada)
+                if i + 1 < len(filtered_pairs_t3):
+                    area_name2, col_t2, col_a2 = filtered_pairs_t3[i+1]
+                    t_m2 = df_tab3[col_t2].dropna().tolist()
+                    a_m2 = df_tab3[col_a2].dropna().tolist()
+                    months_label2 = ALL_MONTHS[:len(a_m2)] if len(a_m2) <= 12 else ALL_MONTHS
+                    
+                    with cols_m[1]:
+                        st.plotly_chart(create_exact_chart(months_label2, t_m2, a_m2, f"REKAP TREN BULANAN 5S - {area_name2.upper()}"), use_container_width=True)
+                        st.markdown(render_exact_table(months_label2, t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
+                
+                st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
+
     # --- TAB 4: PARETO & AI RECOMMENDATION ---
     with tab_pareto:
         st.markdown('<div class="section-header">DIAGRAM PARETO: EVALUASI KRITERIA DENGAN NILAI TERRENDAH</div>', unsafe_allow_html=True)
