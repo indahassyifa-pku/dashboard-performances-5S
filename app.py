@@ -507,9 +507,12 @@ else:
             
             # Tambahkan pengecekan keberadaan kolom agar aman dari KeyError
             if c_a and c_a in df.columns:
-                total_actual_sum += df[c_a].dropna().sum()
+                # Paksa konversi nilai teks/string non-angka menjadi NaN
+                valid_actuals = pd.to_numeric(df[c_a], errors='coerce')
+                total_actual_sum += valid_actuals.dropna().sum()
             if c_t and c_t in df.columns:
-                total_target_sum += df[c_t].dropna().sum()
+                valid_targets = pd.to_numeric(df[c_t], errors='coerce')
+                total_target_sum += valid_targets.dropna().sum()
 
         JUMLAH_AREA = 10
         JUMLAH_KRITERIA = 11
