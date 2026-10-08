@@ -839,51 +839,58 @@ else:
     with tab_monthly_area:
         st.markdown('<div class="section-header">MONITORING TREN PENCAPAIAN PER AREA (BULAN JANUARY - DECEMBER)</div>', unsafe_allow_html=True)
         
-        # Filter khusus mengambil area yang valid untuk data bulanan
-        filtered_selected_areas = [a for a in selected_departments if not any(kw in a.lower() for kw in EXCLUDE_KEYWORDS)]
-        
-        if not filtered_selected_areas:
-            st.warning("Silakan pilih minimal satu area pada sidebar filter.")
+        # Mengambil subset kolom khusus AG sampai BA (Indeks kolom ke-32 sampai 52 di Pandas Dataframe)
+        # Total kolom dalam rentang AG:BA adalah 21 kolom (Target & Aktual untuk 10 Area)
+        if df.shape[1] >= 53:
+            df_tab3 = df.iloc[:, 32:53].copy()
+            tab3_columns = df_tab3.columns.tolist()
+            
+            # Deteksi pasangan area dari kolom Target & Aktual di rentang AG:BA
+            area_pairs = []
+            for col in tab3_columns:
+                if 'target' in col.lower():
+                    clean_area = col.replace('Target', '').replace('target', '').strip()
+                    # Cari kolom Aktual pasangannya di rentang AG:BA
+                    act_col = next((c for c in tab3_columns if clean_area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
+                    if act_col:
+                        area_pairs.append((clean_area, col, act_col))
+            
+            if not area_pairs:
+                st.warning("Tidak ditemukan pasangan kolom Target & Aktual pada rentang kolom AG sampai BA.")
+            else:
+                # Filter berdasarkan department yang dipilih di sidebar jika sesuai
+                filtered_pairs = [p for p in area_pairs if not selected_departments or any(sd.lower() in p[0].lower() or p[0].lower() in sd.lower() for sd in selected_departments)]
+                if not filtered_pairs:
+                    filtered_pairs = area_pairs
+
+                # Rendering Grid 2 Kolom khusus data AG:BA (Bulan Jan - Dec)
+                for i in range(0, len(filtered_pairs), 2):
+                    cols_m = st.columns(2)
+                    
+                    # Area 1
+                    area_name1, col_t1, col_a1 = filtered_pairs[i]
+                    t_m1 = df_tab3[col_t1].dropna().tolist()
+                    a_m1 = df_tab3[col_a1].dropna().tolist()
+                    months_label1 = ALL_MONTHS[:len(a_m1)] if len(a_m1) <= 12 else ALL_MONTHS
+                    
+                    with cols_m[0]:
+                        st.plotly_chart(create_exact_chart(months_label1, t_m1, a_m1, f"TREN BULANAN 5S - {area_name1.upper()}"), use_container_width=True)
+                        st.markdown(render_exact_table(months_label1, t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
+                    
+                    # Area 2 (Jika Ada)
+                    if i + 1 < len(filtered_pairs):
+                        area_name2, col_t2, col_a2 = filtered_pairs[i+1]
+                        t_m2 = df_tab3[col_t2].dropna().tolist()
+                        a_m2 = df_tab3[col_a2].dropna().tolist()
+                        months_label2 = ALL_MONTHS[:len(a_m2)] if len(a_m2) <= 12 else ALL_MONTHS
+                        
+                        with cols_m[1]:
+                            st.plotly_chart(create_exact_chart(months_label2, t_m2, a_m2, f"TREN BULANAN 5S - {area_name2.upper()}"), use_container_width=True)
+                            st.markdown(render_exact_table(months_label2, t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
+                    
+                    st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
         else:
-            # Rendering dalam bentuk Grid 2 Kolom untuk Area
-            for i in range(0, len(filtered_selected_areas), 2):
-                cols_m = st.columns(2)
-                
-                # --- AREA 1 ---
-                area_1 = filtered_selected_areas[i]
-                
-                # Mengutamakan pencocokan kolom persis (seperti SMS.1) untuk data bulanan area
-                c_t1 = next((c for c in all_columns if c.lower() == f"target {area_1.lower()}" or (area_1.lower() in c.lower() and 'target' in c.lower())), None)
-                c_a1 = next((c for c in all_columns if c.lower() == f"aktual {area_1.lower()}" or (area_1.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai']))), None)
-                
-                # Ekstrak data 12 bulan (Januari - Desember)
-                t_m1 = df[c_t1].dropna().tolist() if c_t1 else [0]*len(ALL_MONTHS)
-                a_m1 = df[c_a1].dropna().tolist() if c_a1 else [0]*len(ALL_MONTHS)
-                
-                # Batasi sesuai jumlah data bulan
-                months_label1 = months_data[:len(a_m1)] if len(months_data) >= len(a_m1) else ALL_MONTHS
-                
-                with cols_m[0]:
-                    st.plotly_chart(create_exact_chart(months_label1, t_m1, a_m1, f"TREN BULANAN 5S - {area_1.upper()}"), use_container_width=True)
-                    st.markdown(render_exact_table(months_label1, t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
-                
-                # --- AREA 2 (JIKA ADA) ---
-                if i + 1 < len(filtered_selected_areas):
-                    area_2 = filtered_selected_areas[i+1]
-                    
-                    c_t2 = next((c for c in all_columns if c.lower() == f"target {area_2.lower()}" or (area_2.lower() in c.lower() and 'target' in c.lower())), None)
-                    c_a2 = next((c for c in all_columns if c.lower() == f"aktual {area_2.lower()}" or (area_2.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai']))), None)
-                    
-                    t_m2 = df[c_t2].dropna().tolist() if c_t2 else [0]*len(ALL_MONTHS)
-                    a_m2 = df[c_a2].dropna().tolist() if c_a2 else [0]*len(ALL_MONTHS)
-                    
-                    months_label2 = months_data[:len(a_m2)] if len(months_data) >= len(a_m2) else ALL_MONTHS
-                    
-                    with cols_m[1]:
-                        st.plotly_chart(create_exact_chart(months_label2, t_m2, a_m2, f"TREN BULANAN 5S - {area_2.upper()}"), use_container_width=True)
-                        st.markdown(render_exact_table(months_label2, t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
-                
-                st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
+            st.error(f"Jumlah kolom pada Google Sheets ({df.shape[1]}) kurang dari 53 kolom. Pastikan rentang AG:BA tersedia.")
 
     # --- TAB 4: PARETO & AI RECOMMENDATION ---
     with tab_pareto:
