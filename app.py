@@ -495,16 +495,16 @@ else:
         indices_m = [months_data.index(m) for m in filtered_months]
         t_m = [targets_m_data[i] if i < len(targets_m_data) else 0 for i in indices_m]
         a_m = [actuals_m_data[i] if i < len(actuals_m_data) else 0 for i in indices_m]
+        
         total_actual_sum = 0.0
         total_target_sum = 0.0
         filtered_selected_areas = [a for a in selected_departments if not any(kw in a.lower() for kw in EXCLUDE_KEYWORDS)]
 
-        # --- PERBAIKAN DENGAN PENGECEKAN KEBERADAAN KOLOM ---
+        # Penjumlahan aman dengan pengecekan keberadaan kolom (Mencegah KeyError)
         for area in filtered_selected_areas:
             c_t = next((c for c in all_columns if area.lower() in c.lower() and 'target' in c.lower()), None)
             c_a = next((c for c in all_columns if area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
             
-            # Tambahkan pengecekan `and c_a in df.columns` dan `and c_t in df.columns`
             if c_a and c_a in df.columns:
                 total_actual_sum += df[c_a].dropna().sum()
             if c_t and c_t in df.columns:
@@ -549,6 +549,7 @@ else:
                 </table>
             </div>
         """, unsafe_allow_html=True)
+
         st.markdown('<div class="section-header">BY ALL (PENCAPAIAN BY MONTH)</div>', unsafe_allow_html=True)
         
         if filtered_months and t_m and a_m:
