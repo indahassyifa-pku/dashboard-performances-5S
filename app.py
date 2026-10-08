@@ -149,6 +149,29 @@ def load_data(url):
         return pd.DataFrame()
 
 df = load_data(SHEET_URL)
+# ----------------- 2. LOGIKA PEMISAHAN DATA (GAMBAR 1 VS GAMBAR 2) -----------------
+    if not df.empty:
+        col_b = df.columns[1] # Kolom B (Kriteria Penilaian / Bulan Berjalan)
+
+        # A. DATA GAMBAR 1 (Khusus 11 Kriteria Penilaian - Untuk Tab 1, Tab 2, Tab 4, Tab 5)
+        # Memfilter baris yang hanya berisi kriteria penilaian
+        df_kriteria = df[df[col_b].astype(str).str.contains(
+            "Sekitar area|Penyimpanan|Area Kerja|Peralatan|Informasi|Tempat|Meja|Penempatan|Mesin", 
+            case=False, na=False
+        )].copy()
+    
+        # Bersihkan nama kolom Gambar 1 (hapus jika ada .1 yang tersisa)
+        df_kriteria.columns = [c.replace('.1', '').strip() for c in df_kriteria.columns]
+
+        # B. DATA GAMBAR 2 (Khusus Tren Bulanan Jan - Dec - Untuk Tab 3)
+        # Memfilter baris yang berisi nama-nama bulan
+        df_bulanan = df[df[col_b].astype(str).str.contains(
+            "January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Mei|Jun|Jul|Aug|Sep|Oct|Nov|Dec", 
+            case=False, na=False
+        )].copy()
+
+        # Bersihkan nama kolom Gambar 2 agar tidak ada akhiran .1 lagi
+        df_bulanan.columns = [c.replace('.1', '').strip() for c in df_bulanan.columns]
 
 # ----------------- STORAGE LOKAL CSV UNTUK CAPA LOG -----------------
 CAPA_CSV_FILE = "capa_log_database.csv"
@@ -745,28 +768,41 @@ else:
         ]
         st.dataframe(pd.DataFrame(data_action_plan), use_container_width=True, hide_index=True)
     
-    # --- TAB 2: DETAIL KRITERIA & LEVELING ---
+    # =========================================================================
+    # --- TAB 2: DETAIL 11 KRITERIA PENILAIAN (MENGGUNAKAN DF_KRITERIA) ---
+    # =========================================================================
     with tab_details:
-        st.markdown('<div class="section-header">BY KRITERIA PENILAIAN & ANALISA PERBAIKAN (DETAIL PER LINE / DEPARTMENT)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">BY KRITERIA PENILAIAN & ANALISA PERBAIKAN (GAMBAR 1)</div>', unsafe_allow_html=True)
         
-        available_lines_map = {title: (title, key) for title, key in lines_info if key in selected_departments}
-        available_line_names = list(available_lines_map.keys())
+        all_cols_kriteria = df_kriteria.columns.tolist()
+        
+        # 10 Area Utama tanpa duplikasi .1
+        TARGET_AREAS = ["PVC", "SMS", "STEX", "BTEX", "DFAS", "PPEX", "WH", "SHP", "QA/QC", "MTC"]
+        
+        # Deteksi otomatis pasangan Target & Aktual khusus Gambar 1
+        lines_info_t2 = []
+        for area_code in TARGET_AREAS:
+            c_t = next((c for c in all_cols_kriteria if area_code.lower() in c.lower() and 'target' in c.lower()), None)
+            c_a = next((c for c in all_cols_kriteria if area_code.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
+            if c_t and c_a:
+                lines_info_t2.append((area_code, c_t, c_a))
 
-        if available_line_names:
-            selected_tab2_lines = st.multiselect(
-                "🎯 Pilih Area / Line yang Ingin Ditampilkan:",
-                options=available_line_names,
-                default=available_line_names,
-                key="filter_tab2_lines"
-            )
-            filtered_lines = [available_lines_map[name] for name in selected_tab2_lines]
-        else:
-            filtered_lines = []
+        # Filter Multi-select Area
+        available_area_names = [info[0] for info in lines_info_t2]
+        selected_tab2_lines = st.multiselect(
+            "🎯 Pilih Area / Line yang Ingin Ditampilkan:",
+            options=available_area_names,
+            default=available_area_names,
+            key="filter_tab2_lines"
+        )
+        
+        filtered_lines_t2 = [info for info in lines_info_t2 if info[0] in selected_tab2_lines]
         st.markdown("<br>", unsafe_allow_html=True)
 
         x_kriteria_num = [str(i) for i in range(1, len(kriteria_labels) + 1)]
 
-        def render_line_analysis(title_area, key_area, targets_list, actuals_list):
+        # Fungsi Helper Render Analisa Temuan NG
+        def render_line_analysis(title_area, targets_list, actuals_list):
             ng_items = []
             for k_name, act, tgt in zip(kriteria_labels, actuals_list, targets_list):
                 try:
@@ -777,19 +813,10 @@ else:
             
             if ng_items:
                 ng_items.sort(key=lambda x: x[1])
-                
                 with st.popover(f"🔍 Tindak Lanjut Analisa & Rekomendasi ({len(ng_items)} Temuan NG)", use_container_width=True):
                     list_items_html = ""
                     for k_name, act_val, tgt_val in ng_items:
-                        rec_data = RCA_RECOMMENDATION.get(k_name, {
-                            "cause": "Belum ada standar visual dan pengawasan rutin di area kerja.",
-                            "action_operator": "Lakukan pembersihan total, rapikan penataan, dan pasang label petunjuk.",
-                            "action_gl": "Monitoring kebersihan dan kerapian area harian.",
-                            "action_foreman": "Buat standar penataan visual dan evaluasi mingguan.",
-                            "action_sh": "Review ketercapaian standar 5S area secara periodik.",
-                            "action_dh": "Dukung kebutuhan fasilitas dan sosialisasi budaya 5S."
-                        })
-                        
+                        rec_data = RCA_RECOMMENDATION.get(k_name, {})
                         list_items_html += (
                             f"<li style='margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed #ffcdd2;'>"
                             f"<b>{k_name}</b> (Nilai: <span style='color:#d32f2f; font-weight:bold;'>{act_val:.1f}</span> / Target: {tgt_val:.1f})<br>"
@@ -798,108 +825,137 @@ else:
                             f"&bull; <b>Tindakan Operator:</b> <span style='color:#1b5e20;'>{rec_data.get('action_operator', '-')}</span><br>"
                             f"&bull; <b>Tindakan Group Leader:</b> <span style='color:#0d47a1;'>{rec_data.get('action_gl', '-')}</span><br>"
                             f"&bull; <b>Tindakan Foreman:</b> <span style='color:#e65100;'>{rec_data.get('action_foreman', '-')}</span><br>"
-                            f"&bull; <b>Tindakan Section Head:</b> <span style='color:#4a148c;'>{rec_data.get('action_sh', '-')}</span><br>"
-                            f"&bull; <b>Tindakan Dept Head:</b> <span style='color:#880e4f;'>{rec_data.get('action_dh', '-')}</span>"
                             f"</div>"
                             f"</li>"
                         )
-                    
-                    html_card = f"""
+                    st.markdown(f"""
                     <div class="analysis-card">
                         <h5 style="color: #b71c1c; margin-top: 0; font-weight: 700;">🔍 ANALISA & REKOMENDASI PERBAIKAN AREA {title_area.upper()}:</h5>
-                        <p style="font-size: 13px; margin-bottom: 8px;">Ditemukan <b>{len(ng_items)} kriteria</b> yang belum mencapai target:</p>
                         <ol style="margin: 5px 0 5px 15px; padding: 0; font-size: 12px;">{list_items_html}</ol>
                     </div>
-                    """
-                    st.markdown(html_card, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
             else:
-                st.success(f"🎉 Luar Biasa! Area {title_area} memenuhi seluruh kriteria target 5S (100% OK).")
+                st.success(f"🎉 Area {title_area} memenuhi seluruh kriteria target 5S (100% OK).")
 
-        if not filtered_lines:
-            st.warning("Silakan pilih minimal satu area pada dropdown di atas.")
+        # Rendering Grafik & Tabel Gambar 1
+        if not filtered_lines_t2:
+            st.warning("Silakan pilih minimal satu area pada filter di atas.")
         else:
-            for title_line, key_line in filtered_lines:
-                c_tgt = next((c for c in all_columns if key_line.lower() in c.lower() and 'target' in c.lower()), None)
-                c_act = next((c for c in all_columns if key_line.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
-                
-                t_k = df[c_tgt].dropna().tolist() if c_tgt else []
-                a_k = df[c_act].dropna().tolist() if c_act else []
+            for area_code, col_tgt, col_act in filtered_lines_t2:
+                t_k = df_kriteria[col_tgt].dropna().tolist()
+                a_k = df_kriteria[col_act].dropna().tolist()
                 
                 clean_act = [float(x) for x in a_k if str(x).replace('.', '', 1).isdigit()]
                 avg_val = (sum(clean_act) / len(clean_act)) if clean_act else 0.0
                 lvl_val, css_val = get_level_5s(avg_val)
 
-                st.markdown(f"#### 🏭 {title_line} &nbsp; <span class='badge-level {css_val}'>Level: {lvl_val} ({avg_val:.2f})</span>", unsafe_allow_html=True)
-                st.plotly_chart(create_exact_chart(x_kriteria_num[:len(t_k)], t_k, a_k, f"Kriteria Penilaian - {key_line}", is_kriteria=True), use_container_width=True)
+                st.markdown(f"#### 🏭 AREA {area_code} &nbsp; <span class='badge-level {css_val}'>Level: {lvl_val} ({avg_val:.2f})</span>", unsafe_allow_html=True)
+                st.plotly_chart(create_exact_chart(x_kriteria_num[:len(t_k)], t_k, a_k, f"Kriteria Penilaian 5S - {area_code}", is_kriteria=True), use_container_width=True)
                 st.markdown(render_exact_table(kriteria_labels[:len(t_k)], t_k, a_k, "Kriteria"), unsafe_allow_html=True)
-                render_line_analysis(title_line, key_line, t_k, a_k)
+                render_line_analysis(area_code, t_k, a_k)
                 st.markdown("<hr style='margin: 30px 0; border: 0; border-top: 2px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
-# --- TAB 3: TREN BULANAN PER AREA (DATA GAMBAR 2) ---
+
+    # =========================================================================
+    # --- TAB 3: TREN BULANAN PER AREA (MENGGUNAKAN DF_BULANAN) ---
+    # =========================================================================
     with tab_monthly_area:
         st.markdown('<div class="section-header">REKAPITULASI TREN PENCAPAIAN 5S PER AREA (JANUARI - DESEMBER)</div>', unsafe_allow_html=True)
         
-        # 1. FILTER KHUSUS DATA GAMBAR 2 (BULAN BERJALAN)
-        # Mencari kolom yang memuat nama bulan / "Bulan Berjalan"
-        col_bulan = next((c for c in df.columns if 'bulan' in c.lower()), None)
+        all_cols_bulanan = df_bulanan.columns.tolist()
         
-        if col_bulan:
-            # Ambil baris yang berisi data bulan (January - December / 12 baris)
-            df_g2 = df[df[col_bulan].notna() & df[col_bulan].astype(str).str.contains('January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Mei|Jun|Jul|Aug|Sep|Oct|Nov|Dec', case=False, na=False)].copy()
-        else:
-            # Jika tidak ada header khusus, ambil baris setelah baris kriteria (posisi Gambar 2)
-            df_g2 = df.dropna(subset=[df.columns[1]]).tail(12).copy()
-
-        # Daftar 10 Area
         TARGET_AREAS = ["PVC", "SMS", "STEX", "BTEX", "DFAS", "PPEX", "WH", "SHP", "QA/QC", "MTC"]
         
-        area_pairs_tab3 = []
+        # Deteksi otomatis pasangan Target & Aktual khusus Gambar 2
+        area_pairs_t3 = []
         for area_code in TARGET_AREAS:
-            col_t = next((c for c in df_g2.columns if area_code.lower() in c.lower() and 'target' in c.lower()), None)
-            col_a = next((c for c in df_g2.columns if area_code.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
-            
-            if col_t and col_a:
-                area_pairs_tab3.append((area_code, col_t, col_a))
+            c_t = next((c for c in all_cols_bulanan if area_code.lower() in c.lower() and 'target' in c.lower()), None)
+            c_a = next((c for c in all_cols_bulanan if area_code.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
+            if c_t and c_a:
+                area_pairs_t3.append((area_code, c_t, c_a))
 
-        filtered_pairs_tab3 = [
-            p for p in area_pairs_tab3 
+        filtered_pairs_t3 = [
+            p for p in area_pairs_t3 
             if not selected_departments or any(sd.lower() in p[0].lower() or p[0].lower() in sd.lower() for sd in selected_departments)
         ]
-        if not filtered_pairs_tab3:
-            filtered_pairs_tab3 = area_pairs_tab3
+        if not filtered_pairs_t3:
+            filtered_pairs_t3 = area_pairs_t3
 
-        # 2. RENDER RINGKASAN & GRAFIK UNTUK TAB 3
-        if not df_g2.empty and filtered_pairs_tab3:
-            # Ambil label bulan dari data Gambar 2
-            months_label = df_g2[col_bulan].tolist() if col_bulan else ALL_MONTHS
+        if df_bulanan.empty or not filtered_pairs_t3:
+            st.warning("⚠️ Data Tren Bulanan (Gambar 2) tidak terdeteksi. Pastikan baris bulan (January - December) tersedia di spreadsheet.")
+        else:
+            # Mengambil label bulan langsung dari Kolom B di Gambar 2
+            col_bulan_name = df_bulanan.columns[1]
+            months_label_g2 = df_bulanan[col_bulan_name].dropna().tolist()
 
-            # Render Grid 2 Kolom Grafik & Tabel
-            for i in range(0, len(filtered_pairs_tab3), 2):
+            # 1. Rangkuman Summary Box Tab 3
+            summary_stats = []
+            for area_name, c_t, c_a in filtered_pairs_t3:
+                t_vals = [float(v) for v in df_bulanan[c_t].dropna() if str(v).replace('.','',1).isdigit()]
+                a_vals = [float(v) for v in df_bulanan[c_a].dropna() if str(v).replace('.','',1).isdigit()]
+                
+                avg_a = sum(a_vals) / len(a_vals) if a_vals else 0.0
+                avg_t = sum(t_vals) / len(t_vals) if t_vals else 4.0
+                ok_months = sum(1 for a_v, t_v in zip(a_vals, t_vals) if a_v >= t_v)
+                
+                summary_stats.append({
+                    "area": area_name,
+                    "avg_actual": avg_a,
+                    "avg_target": avg_t,
+                    "ok_months": ok_months,
+                    "total_months": len(a_vals)
+                })
+
+            if summary_stats:
+                best_area = max(summary_stats, key=lambda x: x['avg_actual'])
+                lowest_area = min(summary_stats, key=lambda x: x['avg_actual'])
+                consistent_areas = [s['area'] for s in summary_stats if s['ok_months'] == s['total_months'] and s['total_months'] > 0]
+                consistent_str = ", ".join(consistent_areas) if consistent_areas else "Belum ada area yang 100% konsisten tiap bulan"
+
+                st.markdown(f"""
+                    <div class="summary-box" style="background-color: var(--secondary-background-color, #ffffff); border-left: 5px solid #004d73; margin-bottom: 25px;">
+                        <h4 style="margin: 0 0 8px 0; color: #004d73; font-size: 15px;">📋 RANGKUMAN REKAPITULASI TREN BULANAN PER AREA (GAMBAR 2)</h4>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.6;">
+                            <tr>
+                                <td style="width: 32%; font-weight: bold;">Area Performa Terbaik (Jan - Dec)</td>
+                                <td>: <b>{best_area['area'].upper()}</b> (Rata-rata Skor: <b style="color:#2e7d32;">{best_area['avg_actual']:.2f}</b>)</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">Area Perlu Perhatian Khusus</td>
+                                <td>: <b>{lowest_area['area'].upper()}</b> (Rata-rata Skor: <b style="color:#c62828;">{lowest_area['avg_actual']:.2f}</b>)</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">Area 100% Target Achieved (Tiap Bulan)</td>
+                                <td>: <b>{consistent_str}</b></td>
+                            </tr>
+                        </table>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            # 2. Rendering Grafik & Tabel Tren Bulanan (Grid 2 Kolom)
+            for i in range(0, len(filtered_pairs_t3), 2):
                 cols_m = st.columns(2)
                 
                 # Area 1
-                area_name1, col_t1, col_a1 = filtered_pairs_tab3[i]
-                t_m1 = df_g2[col_t1].dropna().tolist()
-                a_m1 = df_g2[col_a1].dropna().tolist()
+                area_name1, col_t1, col_a1 = filtered_pairs_t3[i]
+                t_m1 = df_bulanan[col_t1].dropna().tolist()
+                a_m1 = df_bulanan[col_a1].dropna().tolist()
                 
                 with cols_m[0]:
-                    st.plotly_chart(create_exact_chart(months_label[:len(a_m1)], t_m1, a_m1, f"REKAP TREN BULANAN 5S - {area_name1.upper()}"), use_container_width=True)
-                    st.markdown(render_exact_table(months_label[:len(a_m1)], t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
+                    st.plotly_chart(create_exact_chart(months_label_g2[:len(a_m1)], t_m1, a_m1, f"REKAP TREN BULANAN 5S - {area_name1.upper()}"), use_container_width=True)
+                    st.markdown(render_exact_table(months_label_g2[:len(a_m1)], t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
                 
                 # Area 2 (Jika Ada)
-                if i + 1 < len(filtered_pairs_tab3):
-                    area_name2, col_t2, col_a2 = filtered_pairs_tab3[i+1]
-                    t_m2 = df_g2[col_t2].dropna().tolist()
-                    a_m2 = df_g2[col_a2].dropna().tolist()
+                if i + 1 < len(filtered_pairs_t3):
+                    area_name2, col_t2, col_a2 = filtered_pairs_t3[i+1]
+                    t_m2 = df_bulanan[col_t2].dropna().tolist()
+                    a_m2 = df_bulanan[col_a2].dropna().tolist()
                     
                     with cols_m[1]:
-                        st.plotly_chart(create_exact_chart(months_label[:len(a_m2)], t_m2, a_m2, f"REKAP TREN BULANAN 5S - {area_name2.upper()}"), use_container_width=True)
-                        st.markdown(render_exact_table(months_label[:len(a_m2)], t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
+                        st.plotly_chart(create_exact_chart(months_label_g2[:len(a_m2)], t_m2, a_m2, f"REKAP TREN BULANAN 5S - {area_name2.upper()}"), use_container_width=True)
+                        st.markdown(render_exact_table(months_label_g2[:len(a_m2)], t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
                 
                 st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
-        else:
-            st.warning("Data tren bulanan (Gambar 2) tidak terdeteksi di dalam spreadsheet.")
-
     # --- TAB 4: PARETO & AI RECOMMENDATION ---
     with tab_pareto:
         st.markdown('<div class="section-header">DIAGRAM PARETO: EVALUASI KRITERIA DENGAN NILAI TERRENDAH</div>', unsafe_allow_html=True)
