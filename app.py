@@ -431,7 +431,6 @@ else:
     all_columns = df.columns.tolist()
     ALL_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
     
-    # Deteksi otomatis kolom target & aktual By Month
     col_tgt_m = next((c for c in all_columns if 'target' in c.lower() and 'month' in c.lower()), None) or next((c for c in all_columns if 'target' in c.lower()), None)
     col_act_m = next((c for c in all_columns if 'aktual' in c.lower() and 'month' in c.lower()), None) or next((c for c in all_columns if 'aktual' in c.lower()), None)
     
@@ -439,7 +438,6 @@ else:
     targets_m_data = df[col_tgt_m].tolist() if col_tgt_m else []
     actuals_m_data = df[col_act_m].tolist() if col_act_m else []
 
-    # Filter khusus area agar kata 'by area', 'total', 'summary' diabaikan
     EXCLUDE_KEYWORDS = ['by area', 'by_area', 'total', 'summary', 'all area']
     lines_info = []
     
@@ -485,9 +483,11 @@ else:
 
     st.markdown("---")
 
-    tab_summary, tab_details, tab_pareto, tab_action = st.tabs([
+    # METODE PERBAIKAN: MENAMBAHKAN TAB KE-5 TREN BULANAN PER AREA
+    tab_summary, tab_details, tab_monthly_area, tab_pareto, tab_action = st.tabs([
         "📊 Executive Summary (By Month & By Area)", 
         "🏭 Detail 11 Kriteria Penilaian (By Line)", 
+        "📅 Tren Bulanan Per Area (Jan - Dec)",
         "📈 Pareto Analisis Kriteria Rendah",
         "🛠️ CAPA Tracking"
     ])
@@ -766,7 +766,6 @@ else:
 
         x_kriteria_num = [str(i) for i in range(1, len(kriteria_labels) + 1)]
 
-        # PERBAIKAN UTAMA: Menggunakan st.popover agar Analisa TERSEMBUNYI TOTAL & HANYA MUNCUL SAAT DIKLIK
         def render_line_analysis(title_area, key_area, targets_list, actuals_list):
             ng_items = []
             for k_name, act, tgt in zip(kriteria_labels, actuals_list, targets_list):
@@ -779,7 +778,6 @@ else:
             if ng_items:
                 ng_items.sort(key=lambda x: x[1])
                 
-                # Menggunakan st.popover agar informasi HANYA MUNCUL JIKA DIKLIK
                 with st.popover(f"🔍 Tindak Lanjut Analisa & Rekomendasi ({len(ng_items)} Temuan NG)", use_container_width=True):
                     list_items_html = ""
                     for k_name, act_val, tgt_val in ng_items:
@@ -817,7 +815,6 @@ else:
             else:
                 st.success(f"🎉 Luar Biasa! Area {title_area} memenuhi seluruh kriteria target 5S (100% OK).")
 
-        # Loop Menampilkan Grafik, Tabel, dan Analisa secara Berurutan Ke Bawah
         if not filtered_lines:
             st.warning("Silakan pilih minimal satu area pada dropdown di atas.")
         else:
@@ -832,22 +829,61 @@ else:
                 avg_val = (sum(clean_act) / len(clean_act)) if clean_act else 0.0
                 lvl_val, css_val = get_level_5s(avg_val)
 
-                # Header Area
                 st.markdown(f"#### 🏭 {title_line} &nbsp; <span class='badge-level {css_val}'>Level: {lvl_val} ({avg_val:.2f})</span>", unsafe_allow_html=True)
-                
-                # Grafik full-width
                 st.plotly_chart(create_exact_chart(x_kriteria_num[:len(t_k)], t_k, a_k, f"Kriteria Penilaian - {key_line}", is_kriteria=True), use_container_width=True)
-                
-                # Tabel full-width
                 st.markdown(render_exact_table(kriteria_labels[:len(t_k)], t_k, a_k, "Kriteria"), unsafe_allow_html=True)
-                
-                # Analisa Perbaikan (Popup)
                 render_line_analysis(title_line, key_line, t_k, a_k)
-                
-                # Garis pemisah antar area
                 st.markdown("<hr style='margin: 30px 0; border: 0; border-top: 2px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
-    # --- TAB 3: PARETO & AI RECOMMENDATION ---
+    # --- TAB 3: TREN BULANAN PER AREA (JAN - DEC) ---
+    with tab_monthly_area:
+        st.markdown('<div class="section-header">MONITORING TREN PENCAPAIAN PER AREA (BULAN JANUARY - DECEMBER)</div>', unsafe_allow_html=True)
+        
+        filtered_selected_areas = [a for a in selected_departments if not any(kw in a.lower() for kw in EXCLUDE_KEYWORDS)]
+        
+        if not filtered_selected_areas:
+            st.warning("Silakan pilih minimal satu area pada sidebar filter.")
+        else:
+            # Rendering dalam bentuk Grid 2 Kolom untuk 10 Area
+            for i in range(0, len(filtered_selected_areas), 2):
+                cols_m = st.columns(2)
+                
+                # Area 1
+                area_1 = filtered_selected_areas[i]
+                c_t1 = next((c for c in all_columns if area_1.lower() in c.lower() and 'target' in c.lower()), None)
+                c_a1 = next((c for c in all_columns if area_1.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
+                
+                # Ekstrak data 12 bulan dari df utama
+                t_m1 = df[c_t1].tolist() if c_t1 else [0]*len(ALL_MONTHS)
+                a_m1 = df[c_a1].tolist() if c_a1 else [0]*len(ALL_MONTHS)
+                
+                # Batasi sepanjang bulan
+                months_label1 = months_data[:len(a_m1)] if len(months_data) >= len(a_m1) else ALL_MONTHS
+                
+                with cols_m[0]:
+                    st.plotly_chart(create_exact_chart(months_label1, t_m1, a_m1, f"TREN BULANAN 5S - {area_1.upper()}"), use_container_width=True)
+                    st.markdown(render_exact_table(months_label1, t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
+                    render_line_analysis(area_1, area_1, t_m1, a_m1)
+                
+                # Area 2 (Jika Ada)
+                if i + 1 < len(filtered_selected_areas):
+                    area_2 = filtered_selected_areas[i+1]
+                    c_t2 = next((c for c in all_columns if area_2.lower() in c.lower() and 'target' in c.lower()), None)
+                    c_a2 = next((c for c in all_columns if area_2.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
+                    
+                    t_m2 = df[c_t2].tolist() if c_t2 else [0]*len(ALL_MONTHS)
+                    a_m2 = df[c_a2].tolist() if c_a2 else [0]*len(ALL_MONTHS)
+                    
+                    months_label2 = months_data[:len(a_m2)] if len(months_data) >= len(a_m2) else ALL_MONTHS
+                    
+                    with cols_m[1]:
+                        st.plotly_chart(create_exact_chart(months_label2, t_m2, a_m2, f"TREN BULANAN 5S - {area_2.upper()}"), use_container_width=True)
+                        st.markdown(render_exact_table(months_label2, t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
+                        render_line_analysis(area_2, area_2, t_m2, a_m2)
+                
+                st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
+
+    # --- TAB 4: PARETO & AI RECOMMENDATION ---
     with tab_pareto:
         st.markdown('<div class="section-header">DIAGRAM PARETO: EVALUASI KRITERIA DENGAN NILAI TERRENDAH</div>', unsafe_allow_html=True)
         
@@ -871,7 +907,6 @@ else:
         with col_p1:
             st.plotly_chart(create_pareto_chart(kriteria_labels, avg_scores), use_container_width=True)
             
-            # Logic Kesimpulan Pareto Kriteria
             df_rank_p = pd.DataFrame({'Kriteria': kriteria_labels, 'Nilai': avg_scores})
             df_rank_p = df_rank_p.sort_values(by='Nilai', ascending=True).reset_index(drop=True)
             top_3_lowest = df_rank_p.head(3).values.tolist()
@@ -895,7 +930,6 @@ else:
             df_rank.index = df_rank.index + 1
             st.dataframe(df_rank, use_container_width=True)
 
-        # ----------------- PANEL EDIT REKOMENDASI (MANUAL INTERAKTIF) -----------------
         st.markdown("<br>", unsafe_allow_html=True)
         
         area_p_names = []
@@ -968,7 +1002,6 @@ else:
                         height=80
                     )
 
-        # ----------------- TAMPILAN ANALISA 3 KRITERIA TERENDAH -----------------
         st.markdown('<div class="section-header">ANALISA 3 KRITERIA TERENDAH & REKOMENDASI PERBAIKAN</div>', unsafe_allow_html=True)
 
         if top_3_lowest:
@@ -994,7 +1027,6 @@ else:
                         </div>
                     """, unsafe_allow_html=True)
 
-        # ----------------- TAMPILAN ANALISA 3 AREA TERENDAH -----------------
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown('<div class="section-header">ANALISA 3 AREA DENGAN PERFORMA TERENDAH & REKOMENDASI PERBAIKAN</div>', unsafe_allow_html=True)
 
@@ -1023,11 +1055,10 @@ else:
         else:
             st.info("Data area tidak mencukupi untuk menampilkan analisis area terendah.")
 
-    # --- TAB 4: CAPA TRACKING & LOG INPUT TEMUAN NG ---
+    # --- TAB 5: CAPA TRACKING & LOG INPUT TEMUAN NG ---
     with tab_action:
         st.markdown('<div class="section-header">TINDAKAN PERBAIKAN & CAPA TRACKING</div>', unsafe_allow_html=True)
         
-        # 1. TAMPILAN REKOMENDASI RCA GLOBAL (ANALISA 5W1H)
         st.subheader("💡 1. Rekomendasi Solusi & Action Plan Berdasarkan RCA 5S")
         
         selected_rca_kriteria = st.selectbox(
@@ -1055,7 +1086,6 @@ else:
 
         st.markdown("---")
 
-        # 2. FORM INPUT TEMUAN PATROL 5S NG
         st.subheader("📝 2. Log Input Temuan Patrol NG & Penugasan Action Plan")
         
         with st.form(key="form_input_patrol_ng", clear_on_submit=True):
@@ -1115,7 +1145,6 @@ else:
 
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # 3. TABEL AUDIT TRAIL / LOG CAPA TRACKING
         st.subheader("📋 3. Daftar Monitoring Action Plan (CAPA Log)")
         
         if st.session_state["capa_log_data"]:
@@ -1187,7 +1216,6 @@ else:
 
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # 4. GALERI FOTO TEMUAN NG
             st.subheader("🖼️ 4. Galeri Foto Temuan NG Lapangan")
             
             has_image = False
