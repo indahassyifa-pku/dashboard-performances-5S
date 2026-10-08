@@ -2,11 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import io
-import datetime
-from groq import Groq
-from streamlit_gsheets import GSheetsConnection
-import os
 
 # ----------------- KONFIGURASI HALAMAN -----------------
 st.set_page_config(
@@ -15,25 +10,21 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom Styling Adaptif (Dark & Light Mode Support)
+# Custom Styling
 st.markdown("""
     <style>
-    /* Menggunakan variabel CSS bawaan Streamlit untuk kompatibilitas Dark & Light Mode */
-    
     .dashboard-title {
         color: var(--primary-color, #1370a6);
         font-size: 28px;
         font-weight: 800;
         margin-bottom: 5px;
     }
-
     .dashboard-subtitle {
         color: var(--text-color);
         opacity: 0.7;
         font-size: 14px;
         margin-bottom: 20px;
     }
-
     .section-header {
         color: var(--primary-color, #1370a6);
         font-size: 18px;
@@ -43,11 +34,6 @@ st.markdown("""
         padding-bottom: 5px;
         margin-top: 20px;
         margin-bottom: 15px;
-    }
-
-    /* Tabel 5S Adaptif */
-    .table-container {
-        overflow-x: auto;
     }
     .table-5s {
         width: 100%;
@@ -79,11 +65,8 @@ st.markdown("""
         text-align: left; 
         padding-left: 10px !important; 
     }
-    
     .judge-ok { background-color: rgba(46, 125, 50, 0.2); color: #2e7d32; font-weight: bold; }
     .judge-ng { background-color: rgba(198, 40, 40, 0.2); color: #c62828; font-weight: bold; }
-
-    /* Box Kesimpulan Adaptif */
     .summary-box {
         background-color: var(--secondary-background-color, rgba(255, 255, 255, 0.05));
         border-left: 4px solid var(--primary-color, #1370a6);
@@ -95,19 +78,6 @@ st.markdown("""
         line-height: 1.6;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-
-    .summary-box-global {
-        background-color: rgba(46, 125, 50, 0.1);
-        border-left: 5px solid #2e7d32;
-        padding: 15px 20px;
-        border-radius: 8px;
-        margin-top: 25px;
-        font-size: 14px;
-        color: var(--text-color);
-        line-height: 1.6;
-    }
-
-    /* Badge Level 5S */
     .badge-level {
         padding: 4px 12px;
         border-radius: 12px;
@@ -120,8 +90,6 @@ st.markdown("""
     .lvl-bronze { background-color: #d97706; }
     .lvl-silver { background-color: #6b7280; }
     .lvl-gold { background-color: #eab308; }
-
-    /* Card Box Analisa */
     .analysis-card {
         background-color: var(--secondary-background-color, #ffffff);
         border: 1px solid rgba(128, 128, 128, 0.2);
@@ -135,174 +103,20 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ----------------- LINK GOOGLE SHEETS DATA UTAMA (PUBLISH / READ-ONLY) -----------------
+# ----------------- LINK GOOGLE SHEETS -----------------
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQU_jpdzrymx_0mJKGVDopip0DPhnmDLIbsTHgVnqgaJZZayJUp-UPF1MF6H6soCA/pub?output=csv"
 
 @st.cache_data(ttl=10)
 def load_data(url):
     try:
-        df = pd.read_csv(url)
-        df.columns = df.columns.astype(str).str.strip()
-        return df
+        df_load = pd.read_csv(url)
+        df_load.columns = df_load.columns.astype(str).str.strip()
+        return df_load
     except Exception as e:
         st.error(f"Gagal mengambil data dari Google Sheets: {e}")
         return pd.DataFrame()
 
-df = load_data(SHEET_URL)
-# ----------------- 2. LOGIKA PEMISAHAN DATA (GAMBAR 1 VS GAMBAR 2) -----------------
-    if not df.empty:
-        col_b = df.columns[1] # Kolom B (Kriteria Penilaian / Bulan Berjalan)
-
-        # A. DATA GAMBAR 1 (Khusus 11 Kriteria Penilaian - Untuk Tab 1, Tab 2, Tab 4, Tab 5)
-        # Memfilter baris yang hanya berisi kriteria penilaian
-        df_kriteria = df[df[col_b].astype(str).str.contains(
-            "Sekitar area|Penyimpanan|Area Kerja|Peralatan|Informasi|Tempat|Meja|Penempatan|Mesin", 
-            case=False, na=False
-        )].copy()
-    
-        # Bersihkan nama kolom Gambar 1 (hapus jika ada .1 yang tersisa)
-        df_kriteria.columns = [c.replace('.1', '').strip() for c in df_kriteria.columns]
-
-        # B. DATA GAMBAR 2 (Khusus Tren Bulanan Jan - Dec - Untuk Tab 3)
-        # Memfilter baris yang berisi nama-nama bulan
-        df_bulanan = df[df[col_b].astype(str).str.contains(
-            "January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Mei|Jun|Jul|Aug|Sep|Oct|Nov|Dec", 
-            case=False, na=False
-        )].copy()
-
-        # Bersihkan nama kolom Gambar 2 agar tidak ada akhiran .1 lagi
-        df_bulanan.columns = [c.replace('.1', '').strip() for c in df_bulanan.columns]
-
-# ----------------- STORAGE LOKAL CSV UNTUK CAPA LOG -----------------
-CAPA_CSV_FILE = "capa_log_database.csv"
-
-def load_capa_from_gsheets():
-    """Membaca data CAPA dari file CSV lokal"""
-    if os.path.exists(CAPA_CSV_FILE):
-        try:
-            df_capa = pd.read_csv(CAPA_CSV_FILE)
-            return df_capa.to_dict("records")
-        except Exception:
-            return []
-    return []
-
-def save_capa_to_gsheets(data_list):
-    """Menyimpan data CAPA ke file CSV lokal"""
-    df_capa = pd.DataFrame(data_list)
-    df_capa.to_csv(CAPA_CSV_FILE, index=False)
-
-# Inisialisasi Session State CAPA Log menggunakan CSV Lokal
-if "capa_log_data" not in st.session_state:
-    st.session_state["capa_log_data"] = load_capa_from_gsheets()
-
-# ----------------- LIST 11 KRITERIA PENILAIAN EXPLICIT -----------------
-DEFAULT_KRITERIA_LIST = [
-    "Sekitar area kerja",
-    "Penyimpanan Cairan B3",
-    "Penyimpanan RM/WIP/FG",
-    "Penyimpanan Consumable",
-    "Area Kerja di Lapangan",
-    "Peralatan Kerja",
-    "Penyimpanan Master Work",
-    "Informasi Terdokumentasi",
-    "Tempat Istirahat",
-    "Meja Kerja Leader",
-    "Penempatan Dokumen"
-]
-
-# ----------------- REKOMENDASI RCA & ACTION PLAN PER JENJANG JABATAN -----------------
-RCA_RECOMMENDATION = {
-    "Sekitar area kerja": {
-        "cause": "(1) Garis kuning pembatas rusak, pudar, atau hilang. (2) Lantai kotor/rusak karena terkena bahan kimia atau tergores. (3) Trolley lewat sembarangan di luar jalur hijau.",
-        "action_operator": "(1) Dilarang lewat/menginjak jalur yang bukan peruntukannya. (2) Rapikan trolley dan selalu lewati jalur hijau.",
-        "action_gl": "Lakukan patroli harian jalur hijau dan laporkan demarkasi/garis kuning yang rusak ke Foreman.",
-        "action_foreman": "Buat Work Order (WO) perbaikan/pengecatan ulang lantai ke tim Facility/Maintenance.",
-        "action_sh": "Evaluasi alur Material Handling (trolley) dan validasi standar proteksi lantai di area produksi.",
-        "action_dh": "Disetujui anggaran pemeliharaan fasilitas pabrik dan terapkan regulasi kedisiplinan (5S Policy)."
-    },
-    "Penyimpanan Cairan B3": {
-        "cause": "(1) Tidak ada wadah/nampan penampung tumpahan oli/kimia. (2) Kertas petunjuk B3 (MSDS) dan stiker bahaya tidak terpasang/rusak.",
-        "action_operator": "(1) Gunakan nampan penampung di bawah wadah B3. (2) Sediakan majun/spill kit di dekat lokasi simpan.",
-        "action_gl": "Pastikan semua wadah B3 di area memiliki stiker bahaya dan MSDS yang terlapisi plastik transparan.",
-        "action_foreman": "Audit ketersediaan sarana Spill Kit & kelayakan sekunder containment (spill tray) mingguan.",
-        "action_sh": "Koordinasi dengan tim EHS untuk pembaruan dokumen MSDS dan pelatihan tanggap darurat tumpahan B3.",
-        "action_dh": "Pastikan kepatuhan audit regulasi Lingkungan & K3 (B3 Management) terpenuhi 100%."
-    },
-    "Penyimpanan RM/WIP/FG": {
-        "cause": "(1) Barang/bahan menumpuk melebihi batas lokasi. (2) Barang baru dan barang lama tercampur (tidak pakai aturan FIFO).",
-        "action_operator": "(1) Terapkan sistem FIFO saat mengambil/menaruh material. (2) Tumpuk barang sesuai batas Yellow Box.",
-        "action_gl": "Cek kebenaran label tanggal masuk (batch FIFO) dan kerapian penataan stock setiap pergantian shift.",
-        "action_foreman": "Review batas Max-Min stock di area produksi dan koordinasikan pengiriman barang yang menumpuk.",
-        "action_sh": "Evaluasi Layout Floor Space bersama tim PPC/Logistik agar tidak terjadi overstock.",
-        "action_dh": "Otorisasi kebijakan efisiensi persediaan dan restrukturisasi sistem aliran material utama."
-    },
-    "Penyimpanan Consumable": {
-        "cause": "(1) Barang/part kecil berantakan di rak dan tidak ada label nama. (2) Jumlah barang tidak jelas (sering kehabisan/kebanyakan).",
-        "action_operator": "(1) Simpan part di dalam kotak berlabel nama/kode barang. (2) Kembalikan sisa bahan setiap selesai shift.",
-        "action_gl": "Lakukan pengecekan visual (3T: Tempat, Tataletak, Jumlah) pada rak consumable setiap hari.",
-        "action_foreman": "Tetapkan standar Reorder Level (Kanban) untuk mencegah kehabisan/kelebihan part consumable.",
-        "action_sh": "Standardisasi jenis tempat penyimpanan (part box/rak) di seluruh area bagian.",
-        "action_dh": "Tinjau efisiensi pemakaian biaya consumable bulanan dan atur sistem pembelian terpusat."
-    },
-    "Area Kerja di Lapangan": {
-        "cause": "(1) Banyak barang tak terpakai/sampah menumpuk di atas meja. (2) Posisi alat tulis, dokumen, dan alat kerja acak-acakan.",
-        "action_operator": "(1) Buang sampah dan singkirkan barang tak terpakai. (2) Bersihkan meja setiap sebelum pulang shift.",
-        "action_gl": "Inspeksi penerapan Clean Desk Policy dan kerapian garis stiker penataan meja sebelum shift berakhir.",
-        "action_foreman": "Lakukan Red Tag Campaign (Tag Merah) untuk memindahkan barang non-standar dari meja kerja.",
-        "action_sh": "Tetapkan Visual Layout Matrix (posisi standar barang) di seluruh meja kerja lapangan.",
-        "action_dh": "Tegakkan budaya kerja SORTIR dan rapi melalui evaluasi rutin manajemen."
-    },
-    "Peralatan Kerja": {
-        "cause": "(1) Alat kerja/tools sering hilang/tercecer. (2) Tidak ada pengecekan kelengkapan alat saat pergantian shift.",
-        "action_operator": "(1) Simpan alat pada Shadow Board (papan kontur alat). (2) Cek kelengkapan alat 5 menit sebelum & sesudah shift.",
-        "action_gl": "Pimpin briefing 5 menit untuk verifikasi checklist serah-terima kelengkapan alat antar shift.",
-        "action_foreman": "Buat sistem Shadow Board / Busa Cetak (Foam Inlay) dan penandaan warna (Color Coding) perkakas.",
-        "action_sh": "Audit ketersediaan dan kondisi kelayakan tools kerja secara berkala.",
-        "action_dh": "Setujui penggantian/penambahan investasi tools kerja yang standar dan ergonomis."
-    },
-    "Penyimpanan Master Work": {
-        "cause": "(1) Sampel master kotor, terbentur, atau berdebu. (2) Sampel master tercampur dengan produk biasa/cacat.",
-        "action_operator": "(1) Simpan sampel master di dalam box akrilik terkunci. (2) Bersihkan wadah sampel secara rutin.",
-        "action_gl": "Pastikan sampel master selalu memiliki stiker identifikasi 'MASTER WORK - DILARANG UNTUK PRODUKSI'.",
-        "action_foreman": "Lakukan verifikasi kondisi fisik dan validitas kalibrasi/kesesuaian master sampel bulanan.",
-        "action_sh": "Tinjau SOP pendaftaran, penyimpanan, dan masa kadaluwarsa master sampel produksi.",
-        "action_dh": "Sahkan standar kualitas acuan (Master Work) bersama tim Quality Assurance (QA)."
-    },
-    "Informasi Terdokumentasi": {
-        "cause": "(1) Papan informasi kotor dan kusam. (2) Kertas pengumuman/SOP yang ditempel sudah kedaluwarsa atau rusak.",
-        "action_operator": "(1) Bersihkan papan informasi dari debu. (2) Laporkan kertas yang sobek/rusak ke Group Leader.",
-        "action_gl": "Tarik pengumuman/SOP lama yang sudah kedaluwarsa dan ganti dengan dokumen berstatus berlaku.",
-        "action_foreman": "Update matriks informasi, grafik pencapaian KPI, dan kontrol dokumen pada papan informasi.",
-        "action_sh": "Audit kepatuhan pengisian dokumen kontrol dan instruksi kerja ter-update di area.",
-        "action_dh": "Dukung sistem digitalisasi papan informasi (Visual Management Display) secara bertahap."
-    },
-    "Tempat Istirahat": {
-        "cause": "(1) Sisa makanan dan sampah berserakan di meja/lantai. (2) Tempat sampah penuh atau jenis jalurnya tercampur.",
-        "action_operator": "(1) Buang sisa makanan langsung ke tempat sampah terpisah. (2) Jalankan piket kebersihan area istirahat.",
-        "action_gl": "Awasi kepatuhan anggota shift terhadap jadwal piket dan kebersihan area istirahat pasca-istirahat.",
-        "action_foreman": "Sediakan fasilitas tempat sampah terpilah (Organik/Anorganik) dan fasilitas pembersihan memadai.",
-        "action_sh": "Evaluasi ketersediaan dan kelayakan fasilitas tempat istirahat karyawan secara periodik.",
-        "action_dh": "Dukung penciptaan lingkungan kerja yang sehat, nyaman, dan berbudaya 5S tinggi."
-    },
-    "Meja Kerja Leader": {
-        "cause": "(1) Laporan dan berkas kertas menumpuk acak-acakan di meja Leader. (2) Dokumen penting dan biasa tercampur.",
-        "action_operator": "(1) Taruh berkas laporan masuk pada tray 'IN' yang sudah disediakan di meja Leader.",
-        "action_gl": "Gunakan filing tray 3 tingkat (IN, ON PROCESS, OUT) dan rapikan berkas setiap akhir kerja.",
-        "action_foreman": "Terapkan Color Coded Filing (Map Warna) berdasarkan prioritas (Merah = Urgent, Kuning = Biasa).",
-        "action_sh": "Audit kerapian meja kerja Leader saat melakukan Gemba Walk mingguan.",
-        "action_dh": "Instruksikan percepatan efisiensi proses kerja paperless (persetujuan digital)."
-    },
-    "Penempatan Dokumen": {
-        "cause": "(1) Map dokumen di lemari/rak tidak ada nomor atau nama kategorinya. (2) Dokumen lama masih menumpuk di laci.",
-        "action_operator": "(1) Kembalikan map dokumen ke posisi semula setelah selesai dibaca.",
-        "action_gl": "Pastikan bagian luar ordner/map tertempel label identifikasi dan nomor urut yang jelas.",
-        "action_foreman": "Pisahkan hardcopy sesuai Jadwal Retensi Dokumen (Dokumen Aktif vs Arsip Inaktif).",
-        "action_sh": "Buat Master Index Filing Cabinet dan tata kelola pengarsipan terpusat di departemen.",
-        "action_dh": "Setujui prosedur pemusnahan/penyimpanan jangka panjang untuk arsip dokumen lama."
-    }
-}
-
-# ----------------- FUNGSI PENENTUAN LEVEL 5S -----------------
+# ----------------- HELPER FUNCTIONS -----------------
 def get_level_5s(avg_score):
     if avg_score >= 5.0:
         return "Gold", "lvl-gold"
@@ -313,10 +127,8 @@ def get_level_5s(avg_score):
     else:
         return "Black", "lvl-black"
 
-# ----------------- GRAFIK & TABEL BUILDER -----------------
 def create_exact_chart(x_labels, target_vals, actual_vals, title, is_kriteria=False):
     fig = go.Figure()
-    
     bar_colors = []
     for act, tgt in zip(actual_vals, target_vals):
         try:
@@ -330,36 +142,24 @@ def create_exact_chart(x_labels, target_vals, actual_vals, title, is_kriteria=Fa
             bar_colors.append('#e0e0e0')
     
     fig.add_trace(go.Bar(
-        x=x_labels,
-        y=actual_vals,
-        name='Aktual',
-        marker_color=bar_colors,
-        text=actual_vals,
-        textposition='auto',
+        x=x_labels, y=actual_vals, name='Aktual',
+        marker_color=bar_colors, text=actual_vals, textposition='auto',
         width=0.45 if is_kriteria else 0.55
     ))
-    
     fig.add_trace(go.Scatter(
-        x=x_labels,
-        y=target_vals,
-        name='Target',
-        mode='lines+markers',
+        x=x_labels, y=target_vals, name='Target', mode='lines+markers',
         line=dict(color='#0099ff', width=3, shape='spline'),
         marker=dict(size=9, color='#0099ff')
     ))
-    
     clean_targets = [float(v) for v in target_vals if str(v).replace('.','',1).isdigit()]
     clean_actuals = [float(v) for v in actual_vals if str(v).replace('.','',1).isdigit()]
     max_val = max(max(clean_targets, default=10), max(clean_actuals, default=10))
     
     fig.update_layout(
         title=dict(text=f"<b>{title}</b>", font=dict(size=14, color='#004d73')),
-        height=300,
-        margin=dict(l=20, r=20, t=40, b=20),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        height=300, margin=dict(l=20, r=20, t=40, b=20),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         xaxis=dict(showgrid=False, type='category'),
         yaxis=dict(title="Nilai Patrol", showgrid=True, gridcolor='#e2e8f0', range=[0, max_val * 1.25])
     )
@@ -370,107 +170,160 @@ def render_exact_table(columns_header, targets, actuals, first_col_label="Line")
     html += f'<tr><th style="width: 10%;">{first_col_label}</th>'
     for col in columns_header:
         html += f'<th>{col}</th>'
-    html += '</tr>'
-    
-    html += '<tr><td class="bg-label">Target</td>'
+    html += '</tr><tr><td class="bg-label">Target</td>'
     for t in targets:
         html += f'<td>{t if t is not None and str(t) != "" else "-"}</td>'
-    html += '</tr>'
-    
-    html += '<tr><td class="bg-label">Aktual</td>'
+    html += '</tr><tr><td class="bg-label">Aktual</td>'
     for a in actuals:
         html += f'<td>{a if a is not None and str(a) != "" else "-"}</td>'
-    html += '</tr>'
-    
-    html += '<tr><td class="bg-label">Judge</td>'
+    html += '</tr><tr><td class="bg-label">Judge</td>'
     for a, t in zip(actuals, targets):
         try:
-            act_num = float(a)
-            tgt_num = float(t)
-            if act_num >= tgt_num:
+            if float(a) >= float(t):
                 html += '<td class="judge-ok">OK</td>'
             else:
                 html += '<td class="judge-ng">NG</td>'
         except (ValueError, TypeError):
             html += '<td>-</td>'
-    html += '</tr>'
-    
-    html += '</table>'
+    html += '</tr></table>'
     return html
 
 def create_pareto_chart(kriteria_list, scores_list):
     df_pareto = pd.DataFrame({'Kriteria': kriteria_list, 'Nilai': scores_list})
     df_pareto['Nilai'] = pd.to_numeric(df_pareto['Nilai'], errors='coerce').fillna(0)
     df_pareto = df_pareto.sort_values(by='Nilai', ascending=True).reset_index(drop=True)
-    
     total_val = df_pareto['Nilai'].sum()
     df_pareto['CumPercentage'] = (df_pareto['Nilai'].cumsum() / total_val * 100) if total_val > 0 else 0
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    
-    fig.add_trace(
-        go.Bar(
-            x=df_pareto['Kriteria'],
-            y=df_pareto['Nilai'],
-            name="Rata-rata Nilai",
-            marker_color='#ff5252',
-            text=df_pareto['Nilai'].round(2),
-            textposition='auto'
-        ),
-        secondary_y=False
-    )
-    
-    fig.add_trace(
-        go.Scatter(
-            x=df_pareto['Kriteria'],
-            y=df_pareto['CumPercentage'],
-            name="Kumulatif (%)",
-            mode='lines+markers',
-            line=dict(color='#004d73', width=2),
-            marker=dict(size=6)
-        ),
-        secondary_y=True
-    )
+    fig.add_trace(go.Bar(
+        x=df_pareto['Kriteria'], y=df_pareto['Nilai'], name="Rata-rata Nilai",
+        marker_color='#ff5252', text=df_pareto['Nilai'].round(2), textposition='auto'
+    ), secondary_y=False)
+    fig.add_trace(go.Scatter(
+        x=df_pareto['Kriteria'], y=df_pareto['CumPercentage'], name="Kumulatif (%)",
+        mode='lines+markers', line=dict(color='#004d73', width=2), marker=dict(size=6)
+    ), secondary_y=True)
 
     fig.update_layout(
         title=dict(text="<b>DIAGRAM PARETO: EVALUASI KRITERIA DENGAN PERFORMA TERRENDAH</b>", font=dict(size=14, color='#004d73')),
-        height=380,
-        margin=dict(l=20, r=20, t=40, b=80),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        height=380, margin=dict(l=20, r=20, t=40, b=80),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         xaxis=dict(showgrid=False, tickangle=-30)
     )
     fig.update_yaxes(title_text="Rata-rata Nilai Kriteria", secondary_y=False, showgrid=True, gridcolor='#e2e8f0')
     fig.update_yaxes(title_text="Persentase Kumulatif (%)", secondary_y=True, range=[0, 110], showgrid=False)
-    
     return fig
 
-# ----------------- EKSEKUSI PEMBACAAN DATA EXCEL -----------------
-if df.empty:
-    st.error("Data Google Sheets kosong atau tidak ditemukan. Harap periksa koneksi dan link file.")
-else:
-    all_columns = df.columns.tolist()
-    ALL_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-    
-    col_tgt_m = next((c for c in all_columns if 'target' in c.lower() and 'month' in c.lower()), None) or next((c for c in all_columns if 'target' in c.lower()), None)
-    col_act_m = next((c for c in all_columns if 'aktual' in c.lower() and 'month' in c.lower()), None) or next((c for c in all_columns if 'aktual' in c.lower()), None)
-    
-    months_data = df['Bulan'].tolist() if 'Bulan' in all_columns else ALL_MONTHS
-    targets_m_data = df[col_tgt_m].tolist() if col_tgt_m else []
-    actuals_m_data = df[col_act_m].tolist() if col_act_m else []
+# ----------------- CONSTANTS -----------------
+DEFAULT_KRITERIA_LIST = [
+    "Sekitar area kerja", 
+    "Penyimpanan Cairan B3 :", 
+    "Penyimpanan RM/WIP/FG",
+    "Penyimpanan Consumable, Spare Part", 
+    "Area Kerja di Lapangan", 
+    "Mesin, Peralatan pendukung Produksi, Peralatan Kerja",
+    "Penyimpanan Master Work", 
+    "Informasi Terdokumentasi", 
+    "Tempat istirahat",
+    "Meja Kerja Leader", 
+    "Penempatan Dokumen"
+]
 
-    EXCLUDE_KEYWORDS = ['by area', 'by_area', 'total', 'summary', 'all area']
-    lines_info = []
-    
-    for col in all_columns:
-        if 'target' in col.lower() and not ('month' in col.lower()):
-            clean_name = col.replace('Target', '').replace('target', '').strip()
-            if clean_name and not any(kw in clean_name.lower() for kw in EXCLUDE_KEYWORDS):
-                lines_info.append((clean_name, clean_name))
+ALL_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+TARGET_AREAS = ["PVC", "SMS", "STEX", "BTEX", "DFAS", "PPEX", "WH", "SHP", "QA/QC", "MTC"]
 
-    ALL_AREAS = [info[1] for info in lines_info]
+# REKOMENDASI RCA LENGKAP UNTUK ALL 11 KRITERIA
+RCA_RECOMMENDATION = {
+    "Sekitar area kerja": {
+        "cause": "(1) Garis pembatas area kotor/pudar. (2) Terdapat ceceran debu/sampah.",
+        "action_operator": "Melakukan pembersihan berkala sebelum & sesudah shift.",
+        "action_gl": "Patroli kebersihan area kerja harian.",
+        "action_foreman": "Pengajuan perbaikan garis demarkasi yang pudar."
+    },
+    "Penyimpanan Cairan B3 :": {
+        "cause": "(1) Sekunder containment berdebu/ada genangan. (2) Simbol B3 tidak terlihat.",
+        "action_operator": "Pastikan cairan B3 tertutup rapat dan ditempatkan sesuai label.",
+        "action_gl": "Inspeksi mingguan ketersediaan MSDS & kondisi tempat B3.",
+        "action_foreman": "Audit ketaatan regulasi penanganan B3."
+    },
+    "Penyimpanan RM/WIP/FG": {
+        "cause": "(1) Penataan material tidak rapi. (2) Melebihi kapasitas garis batas tumpukan.",
+        "action_operator": "Menata material sesuai tempat & garis batas tumpukan.",
+        "action_gl": "Pemeriksaan keteraturan tumpukan stok WIP/FG.",
+        "action_foreman": "Review penataan layout area penyimpanan."
+    },
+    "Penyimpanan Consumable, Spare Part": {
+        "cause": "(1) Rak sparepart berantakan. (2) Tidak ada kartu kontrol/label item.",
+        "action_operator": "Mengembalikan sparepart ke rak asal setelah digunakan.",
+        "action_gl": "Verifikasi kerapian rak consumable tiap akhir minggu.",
+        "action_foreman": "Standardisasi sistem penataan sparepart."
+    },
+    "Area Kerja di Lapangan": {
+        "cause": "(1) Terdapat barang yang tidak terpakai di area kerja. (2) Penataan janggal.",
+        "action_operator": "Pilah barang yang tidak terpakai dan sisihkan ke tempat khusus.",
+        "action_gl": "Monitoring pelaksanaan Red Tag bulanan.",
+        "action_foreman": "Persetujuan pembuangan/peminjaman barang tak terpakai."
+    },
+    "Mesin, Peralatan pendukung Produksi, Peralatan Kerja": {
+        "cause": "(1) Mesin/peralatan beroli & berdebu. (2) Tool tidak diletakkan di shadow board.",
+        "action_operator": "Bersihkan mesin & kembalikan tool ke shadow board.",
+        "action_gl": "Cek kesesuaian checklist kebersihan mesin.",
+        "action_foreman": "Penjadwalan perawatan berkala (Preventive Maintenance)."
+    },
+    "Penyimpanan Master Work": {
+        "cause": "(1) Jig/Master work berdebu. (2) Posisi simpan tidak pada nomor lokasinya.",
+        "action_operator": "Lap master work & letakkan tepat di nomor raknya.",
+        "action_gl": "Pengecekan kelengkapan & lokasi master work.",
+        "action_foreman": "Penyediaan fasilitas rak master work yang lebih layak."
+    },
+    "Informasi Terdokumentasi": {
+        "cause": "(1) Papan informasi kusam. (2) Dokumen yang tertempel sudah expired.",
+        "action_operator": "Merawat papan informasi dan melepas dokumen lama.",
+        "action_gl": "Update dokumen & instruksi kerja di papan informasi.",
+        "action_foreman": "Audit ketersediaan dokumen instruksi kerja terbaru."
+    },
+    "Tempat istirahat": {
+        "cause": "(1) Sisa makanan/minuman tidak dibuang. (2) Kursi/meja tidak tertata.",
+        "action_operator": "Jaga kebersihan tempat istirahat bersama.",
+        "action_gl": "Pengecekan tempat istirahat seusai jam istirahat.",
+        "action_foreman": "Fasilitasi sarana tempat sampah yang memadai."
+    },
+    "Meja Kerja Leader": {
+        "cause": "(1) Meja tumpukan kertas tidak teratur. (2) Alat tulis berhamburan.",
+        "action_operator": "Rapikan dokumen dan alat tulis di meja.",
+        "action_gl": "Terapkan filing system pada meja kerja.",
+        "action_foreman": "Evaluasi kerapian area kerja Group Leader."
+    },
+    "Penempatan Dokumen": {
+        "cause": "(1) Bider/folder dokumen tidak berlabel. (2) Posisi rak dokumen tidak urut.",
+        "action_operator": "Posisikan binder sesuai urutan nomor/kategori.",
+        "action_gl": "Pastikan label identitas binder terpasang jelas.",
+        "action_foreman": "Standardisasi sistem kearsipan dokumen."
+    }
+}
+
+# ----------------- 1. LOAD DATA UTAMA -----------------
+df = load_data(SHEET_URL)
+
+# ----------------- 2. LOGIKA PEMISAHAN DATA (GAMBAR 1 VS GAMBAR 2) -----------------
+if not df.empty:
+    col_b = df.columns[1] # Kolom B (Kriteria Penilaian / Bulan Berjalan)
+
+    # A. DATA GAMBAR 1 (Khusus 11 Kriteria Penilaian - Tab 1, 2, 4, 5)
+    df_kriteria = df[df[col_b].astype(str).str.contains(
+        "Sekitar area|Penyimpanan|Area Kerja|Peralatan|Informasi|Tempat|Meja|Penempatan|Mesin", 
+        case=False, na=False
+    )].copy()
+    df_kriteria.columns = [c.replace('.1', '').strip() for c in df_kriteria.columns]
+
+    # B. DATA GAMBAR 2 (Khusus Tren Bulanan Jan - Dec - Tab 3)
+    df_bulanan = df[df[col_b].astype(str).str.contains(
+        "January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Mei|Jun|Jul|Aug|Sep|Oct|Nov|Dec", 
+        case=False, na=False
+    )].copy()
+    df_bulanan.columns = [c.replace('.1', '').strip() for c in df_bulanan.columns]
 
     # Sidebar Filter
     st.sidebar.header("🔍 Filter & Kontrol Dashboard")
@@ -479,307 +332,55 @@ else:
         st.rerun()
 
     st.sidebar.markdown("---")
-    selected_months = st.sidebar.multiselect("🗓️ Filter Bulan (By Month):", options=months_data, default=months_data)
-    selected_departments = st.sidebar.multiselect("🏢 Filter Department / Line:", options=ALL_AREAS, default=ALL_AREAS)
-
-    def generate_excel_download(dataframe):
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            dataframe.to_excel(writer, sheet_name='Data_5S', index=False)
-        return output.getvalue()
+    selected_departments = st.sidebar.multiselect("🏢 Filter Department / Line:", options=TARGET_AREAS, default=TARGET_AREAS)
 
     # Header
     col_title, col_export = st.columns([3, 1])
     with col_title:
         st.markdown('<div class="dashboard-title">🧹 DASHBOARD PERFORMANCE PATROL 5S</div>', unsafe_allow_html=True)
-        st.markdown('<div class="dashboard-subtitle">Monitoring Real-time Pencapaian Patrol 5S Terintegrasi Full Data Google Sheets</div>', unsafe_allow_html=True)
-
-    with col_export:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.download_button(
-            label="📥 Download Excel Report",
-            data=generate_excel_download(df),
-            file_name="Laporan_Patrol_5S_Realtime.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+        st.markdown('<div class="dashboard-subtitle">Monitoring Real-time Pencapaian Patrol 5S Terintegrasi Data Google Sheets</div>', unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # METODE PERBAIKAN: MENAMBAHKAN TAB KE-5 TREN BULANAN PER AREA
-    tab_summary, tab_details, tab_monthly_area, tab_pareto, tab_action = st.tabs([
-        "📊 Executive Summary (By Month & By Area)", 
-        "🏭 Detail 11 Kriteria Penilaian (By Line)", 
-        "📅 Tren Bulanan Per Area (Jan - Dec)",
-        "📈 Pareto Analisis Kriteria Rendah",
-        "🛠️ CAPA Tracking"
+    # UNIFIED TABS
+    tab_summary, tab_details, tab_monthly_area, tab_pareto = st.tabs([
+        "📊 Executive Summary", 
+        "🏭 Detail 11 Kriteria Penilaian (Gambar 1)", 
+        "📅 Tren Bulanan Per Area (Gambar 2)",
+        "📈 Pareto Analisis"
     ])
 
-    if 'Kriteria' in all_columns and not df['Kriteria'].dropna().empty:
-        kriteria_labels = df['Kriteria'].dropna().tolist()
-    else:
-        kriteria_labels = DEFAULT_KRITERIA_LIST
+    kriteria_labels = DEFAULT_KRITERIA_LIST
 
-    ng_areas = []
-    ok_areas = []
-
-    IMAGE_DIR = "uploaded_images"
-    if not os.path.exists(IMAGE_DIR):
-        os.makedirs(IMAGE_DIR)
-
-    # --- TAB 1: SUMMARY & ANALYSIS ---
+    # =========================================================================
+    # --- TAB 1: SUMMARY ---
+    # =========================================================================
     with tab_summary:
-        filtered_months = [m for m in months_data if m in selected_months]
-        indices_m = [months_data.index(m) for m in filtered_months]
-        t_m = [targets_m_data[i] if i < len(targets_m_data) else 0 for i in indices_m]
-        a_m = [actuals_m_data[i] if i < len(actuals_m_data) else 0 for i in indices_m]
-
-        total_actual_sum = 0.0
-        total_target_sum = 0.0
-
-        filtered_selected_areas = [a for a in selected_departments if not any(kw in a.lower() for kw in EXCLUDE_KEYWORDS)]
-
-        for area in filtered_selected_areas:
-            c_t = next((c for c in all_columns if area.lower() in c.lower() and 'target' in c.lower()), None)
-            c_a = next((c for c in all_columns if area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
-            
-            if c_a:
-                total_actual_sum += df[c_a].dropna().sum()
-            if c_t:
-                total_target_sum += df[c_t].dropna().sum()
-
-        JUMLAH_AREA = 10
-        JUMLAH_KRITERIA = 11
-
-        avg_actual = total_actual_sum / (JUMLAH_AREA * JUMLAH_KRITERIA)
-        avg_target = total_target_sum / (JUMLAH_AREA * JUMLAH_KRITERIA) if total_target_sum > 0 else 4.0
-
-        overall_level, level_css = get_level_5s(avg_actual)
-
-        if overall_level in ["Gold", "Silver"]:
-            status_summary = "<span style='color: #2e7d32; font-weight: bold;'>SANGAT BAIK (PERTAHANKAN)</span>"
-            action_summary = "Performa 5S secara keseluruhan berada pada standar tinggi. Pertahankan budaya kerja ini dan lakukan audit rutin secara konsisten."
-        elif overall_level == "Bronze":
-            status_summary = "<span style='color: #e65100; font-weight: bold;'>BUTUH PERBAIKAN FOKUS</span>"
-            action_summary = "Beberapa kriteria/area belum mencapai target. Segera tindak lanjuti temuan NG pada area terkait dan percepat penyelesaian CAPA."
-        else:
-            status_summary = "<span style='color: #c62828; font-weight: bold;'>PERLU TINDAKAN DARURAT (CRITICAL)</span>"
-            action_summary = "Pencapaian 5S berada di bawah standar minimum. Direkomendasikan melakukan Gemba Walk gabungan bersama Management dan Red Tag Campaign."
-
-        st.markdown(f"""
-            <div class="summary-box" style="background-color: var(--secondary-background-color, #ffffff); border-left: 5px solid #004d73; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px;">
-                <h4 style="margin: 0 0 8px 0; color: #004d73; font-size: 15px;">📋 RANGKUMAN & KESIMPULAN EXECUTIVE SUMMARY</h4>
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.6;">
-                    <tr>
-                        <td style="width: 25%; font-weight: bold;">Status Performa 5S</td>
-                        <td>: {status_summary}</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold;">Ketercapaian Skor Akhir</td>
-                        <td>: Skor Akhir <b>{avg_actual:.2f}</b> dari Target <b>{avg_target:.2f}</b> (Level <b>{overall_level}</b>)</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold;">Formula Perhitungan</td>
-                        <td>: Total Nilai ({total_actual_sum:.1f}) ÷ 10 Area ÷ 11 Kriteria = <b>{avg_actual:.2f}</b></td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold;">Rekomendasi Tindakan</td>
-                        <td>: {action_summary}</td>
-                    </tr>
-                </table>
-            </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown('<div class="section-header">BY ALL (PENCAPAIAN BY MONTH)</div>', unsafe_allow_html=True)
-        
-        if filtered_months and t_m and a_m:
-            st.plotly_chart(create_exact_chart(filtered_months, t_m, a_m, "PENCAPAIAN AKTIVITAS 5S BY MONTH"), use_container_width=True)
-            st.markdown(render_exact_table(filtered_months, t_m, a_m, "Bulan"), unsafe_allow_html=True)
-            
-            ok_m_cnt = sum(1 for act, tgt in zip(a_m, t_m) if float(act) >= float(tgt))
-            total_m_cnt = len(filtered_months)
-            ng_m_cnt = total_m_cnt - ok_m_cnt
-            
-            st.markdown(f"""
-                <div class="summary-box">
-                    <strong>📌 Kesimpulan Pencapaian Bulanan:</strong><br>
-                    Dari total <b>{total_m_cnt} bulan</b> yang dipantau, sebanyak <b>{ok_m_cnt} bulan</b> berhasil mencapai target 5S, 
-                    sedangkan <b>{ng_m_cnt} bulan</b> masih belum memenuhi target yang ditetapkan.
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.warning("Data By Month tidak ditemukan pada Excel.")
-
-        st.markdown("<hr style='margin: 35px 0; border: 0; border-top: 2px dashed #cbd5e1;'>", unsafe_allow_html=True)
-
-        st.markdown('<div class="section-header">BY DEPARTMENT / AREA</div>', unsafe_allow_html=True)
-        
+        st.markdown('<div class="section-header">PENCAPAIAN 5S PER AREA (GAMBAR 1 SUMMARY)</div>', unsafe_allow_html=True)
         area_targets = []
         area_actuals = []
         
-        for area in filtered_selected_areas:
-            c_t = next((c for c in all_columns if area.lower() in c.lower() and 'target' in c.lower()), None)
-            c_a = next((c for c in all_columns if area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
+        all_cols_k = df_kriteria.columns.tolist()
+        for area in selected_departments:
+            c_t = next((c for c in all_cols_k if area.lower() in c.lower() and 'target' in c.lower()), None)
+            c_a = next((c for c in all_cols_k if area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
             
-            sum_t = df[c_t].dropna().sum() if c_t else 0
-            sum_a = df[c_a].dropna().sum() if c_a else 0
+            sum_t = df_kriteria[c_t].dropna().sum() if c_t else 0
+            sum_a = df_kriteria[c_a].dropna().sum() if c_a else 0
             area_targets.append(sum_t)
             area_actuals.append(sum_a)
 
-        if filtered_selected_areas:
-            st.plotly_chart(create_exact_chart(filtered_selected_areas, area_targets, area_actuals, "PENCAPAIAN PER AREA / DEPARTMENT"), use_container_width=True)
-            st.markdown(render_exact_table(filtered_selected_areas, area_targets, area_actuals, "Area"), unsafe_allow_html=True)
-            
-            ok_areas = []
-            ng_areas = []
-            
-            for area, act, tgt in zip(filtered_selected_areas, area_actuals, area_targets):
-                if float(act) >= float(tgt):
-                    ok_areas.append(area)
-                else:
-                    ng_areas.append(area)
-            
-            ok_str = ", ".join(ok_areas) if ok_areas else "-"
-            ng_str = ", ".join(ng_areas) if ng_areas else "Tidak ada"
-            
-            st.markdown(f"""
-                <div class="summary-box">
-                    <strong>📌 Kesimpulan Pencapaian Area:</strong><br>
-                    Area yang <b>mencapai target (OK)</b>: <b>{ok_str}</b>.<br>
-                    Area yang <b>perlu perbaikan (NG)</b>: <b style='color:#c0392b;'>{ng_str}</b>.
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.warning("Pilih minimal satu area.")
+        if selected_departments:
+            st.plotly_chart(create_exact_chart(selected_departments, area_targets, area_actuals, "PENCAPAIAN PER AREA / DEPARTMENT"), use_container_width=True)
+            st.markdown(render_exact_table(selected_departments, area_targets, area_actuals, "Area"), unsafe_allow_html=True)
 
-        st.markdown("<hr style='margin: 40px 0; border: 0; border-top: 3px solid #004d73;'>", unsafe_allow_html=True)
-
-        st.markdown('<div class="section-header">ANALISA KETIDAKTERCAPAIAN AKTIVITAS PATROL 5S</div>', unsafe_allow_html=True)
-
-        st.subheader("📋 1. Analisa Kondisi Yang Ada (4M Analysis)")
-        data_4m = [
-            {
-                "No": 1, "Man": "", "Machine": "", "Material": "", "Method": "✓",
-                "Control Item": "Pelaksanaan Patrol 5S", "Control Point": "Frekuensi & Jadwal Patrol",
-                "Standard": "Patrol rutin 1x/minggu sesuai kalender", "Actual": "Patrol hanya terlaksana 2x/bulan",
-                "Ilustration": "-", "Judge": "NG"
-            },
-            {
-                "No": 2, "Man": "✓", "Machine": "", "Material": "", "Method": "",
-                "Control Item": "Kedisiplinan Area Owner", "Control Point": "Penyelesaian CAPA 5S",
-                "Standard": "Closing CAPA 100% tepat waktu (< 7 hari)", "Actual": "Penyelesaian CAPA terlambat (rata-rata 14 hari)",
-                "Ilustration": "-", "Judge": "NG"
-            },
-            {
-                "No": 3, "Man": "", "Machine": "", "Material": "✓", "Method": "",
-                "Control Item": "Fasilitas & Labeling 5S", "Control Point": "Kelengkapan Line Marking & Label",
-                "Standard": "100% Area terlabeli & border utuh", "Actual": "Garis pembatas pudar & label alat hilang di 3 area",
-                "Ilustration": "-", "Judge": "NG"
-            }
-        ]
-        st.dataframe(
-            pd.DataFrame(data_4m),
-            column_config={
-                "Man": st.column_config.TextColumn("Man", width="small"),
-                "Machine": st.column_config.TextColumn("Mc", width="small"),
-                "Material": st.column_config.TextColumn("Mat", width="small"),
-                "Method": st.column_config.TextColumn("Met", width="small"),
-                "Judge": st.column_config.TextColumn("Judge", width="small"),
-            },
-            use_container_width=True, hide_index=True
-        )
-
-        st.markdown("---")
-
-        st.subheader("🔍 2. Analisa Sebab Akibat (5 Why's Analysis)")
-        data_5why = [
-            {
-                "NO": 1, "PROBLEM DESCRIPTION": "Frekuensi Patrol 5S tidak mencapai target bulanan",
-                "STD": "Patrol 1x/minggu", "ACT": "Terlaksana 2x/bulan", "4M": "Method",
-                "WHY 1": "Jadwal patrol sering bertabrakan dengan schedule produksi urgent",
-                "WHY 2": "Belum ada alokasi waktu khusus (fixed slot) untuk patrol",
-                "WHY 3": "Patrol dianggap aktivitas opsional di luar operasional utama",
-                "WHY 4": "Belum ada KPI spesifik terkait kepatuhan jadwal Patrol 5S",
-                "WHY 5": "Sistem manajemen belum mengintegrasikan 5S ke dalam Standar Kerja Harian"
-            },
-            {
-                "NO": 2, "PROBLEM DESCRIPTION": "Penyelesaian CAPA 5S sering delay",
-                "STD": "Close < 7 hari", "ACT": "Rata-rata 14 hari", "4M": "Man",
-                "WHY 1": "PIC terlambat melakukan tindak lanjut perbaikan",
-                "WHY 2": "PIC tidak menerima notifikasi reminder tugas perbaikan",
-                "WHY 3": "Monitoring CAPA masih dilakukan secara manual berkala",
-                "WHY 4": "Sistem tracking CAPA belum terhubung langsung dengan alert PIC",
-                "WHY 5": "Belum ada sistem eskalasi otomatis jika CAPA melewati due date"
-            }
-        ]
-        st.dataframe(pd.DataFrame(data_5why), use_container_width=True, hide_index=True)
-
-        st.markdown("---")
-
-        st.subheader("🐟 3. Diagram Fishbone / Ishikawa (Ketidaktercapaian 5S)")
-        fig_fishbone = go.Figure()
-        fig_fishbone.add_trace(go.Scatter(
-            x=[0, 10, 11], y=[0, 0, 0],
-            mode='lines+text',
-            line=dict(color='#1f77b4', width=4),
-            text=["", "", "<b>Pencapaian 5S<br>Tidak Tercapai</b>"],
-            textposition="middle right", showlegend=False
-        ))
-
-        categories = [
-            ("METHOD", 3, 2, "Jadwal bentrok produksi<br>→ Tanpa fixed time slot"),
-            ("MAN", 7, 2, "Delay tindakan perbaikan<br>→ Tanpa reminder sistem"),
-            ("MATERIAL", 3, -2, "Border & label pudar/hilang<br>→ Tidak ada jadwal peremajaan"),
-            ("MACHINE", 7, -2, "Alat kebersihan rusak<br>→ Penanggung jawab tidak jelas")
-        ]
-
-        for cat, x_top, y_top, subtext in categories:
-            fig_fishbone.add_trace(go.Scatter(
-                x=[x_top - 1, x_top], y=[y_top, 0],
-                mode='lines+text',
-                line=dict(color='#2c3e50', width=2),
-                text=[f"<b>{cat}</b>", ""],
-                textposition="top center" if y_top > 0 else "bottom center",
-                showlegend=False
-            ))
-            fig_fishbone.add_annotation(
-                x=x_top - 0.5, y=y_top / 2,
-                text=subtext, showarrow=False,
-                font=dict(size=10, color="#555555")
-            )
-
-        fig_fishbone.update_layout(
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 14]),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-4, 4]),
-            height=320, margin=dict(l=20, r=20, t=20, b=20),
-            plot_bgcolor='rgba(0,0,0,0)'
-        )
-        st.plotly_chart(fig_fishbone, use_container_width=True)
-
-        st.markdown("---")
-
-        st.subheader("📅 4. Rencana & Tindakan Perbaikan (Action Plan)")
-        data_action_plan = [
-            {"No": 1, "Item Problem": "Frekuensi Patrol 5S tidak mencapai target bulanan", "Activity": "Penetapan Fixed Time Slot & KPI 5S", "Detail Activity": "Penyusunan jadwal terintegrasi kalender produksi", "Days": 3, "PIC": "OS & Produksi", "Target": "Mei W-III"},
-            {"No": 2, "Item Problem": "Frekuensi Patrol 5S tidak mencapai target bulanan", "Activity": "Penetapan Fixed Time Slot & KPI 5S", "Detail Activity": "Sosialisasi & Kick Off Jam Khusus 5S", "Days": 2, "PIC": "ALL Dept", "Target": "Mei W-IV"},
-            {"No": 3, "Item Problem": "Penyelesaian CAPA 5S sering delay", "Activity": "Digitalisasi System Tracking CAPA", "Detail Activity": "Pengembangan Dashboard & Auto Notification", "Days": 7, "PIC": "IT / OS", "Target": "Juni W-I"},
-            {"No": 4, "Item Problem": "Penyelesaian CAPA 5S sering delay", "Activity": "Digitalisasi System Tracking CAPA", "Detail Activity": "Trial System & Evaluasi Dashboard", "Days": 5, "PIC": "ALL Dept", "Target": "Juni W-II"},
-            {"No": 5, "Item Problem": "Penyelesaian CAPA 5S sering delay", "Activity": "Digitalisasi System Tracking CAPA", "Detail Activity": "Standarisasi Sistem Eskalasi Overdue CAPA", "Days": 3, "PIC": "OS & SH", "Target": "Juni W-III"}
-        ]
-        st.dataframe(pd.DataFrame(data_action_plan), use_container_width=True, hide_index=True)
-    
     # =========================================================================
-    # --- TAB 2: DETAIL 11 KRITERIA PENILAIAN (MENGGUNAKAN DF_KRITERIA) ---
+    # --- TAB 2: DETAIL 11 KRITERIA PENILAIAN (GAMBAR 1) ---
     # =========================================================================
     with tab_details:
         st.markdown('<div class="section-header">BY KRITERIA PENILAIAN & ANALISA PERBAIKAN (GAMBAR 1)</div>', unsafe_allow_html=True)
         
         all_cols_kriteria = df_kriteria.columns.tolist()
-        
-        # 10 Area Utama tanpa duplikasi .1
-        TARGET_AREAS = ["PVC", "SMS", "STEX", "BTEX", "DFAS", "PPEX", "WH", "SHP", "QA/QC", "MTC"]
-        
-        # Deteksi otomatis pasangan Target & Aktual khusus Gambar 1
         lines_info_t2 = []
         for area_code in TARGET_AREAS:
             c_t = next((c for c in all_cols_kriteria if area_code.lower() in c.lower() and 'target' in c.lower()), None)
@@ -787,7 +388,6 @@ else:
             if c_t and c_a:
                 lines_info_t2.append((area_code, c_t, c_a))
 
-        # Filter Multi-select Area
         available_area_names = [info[0] for info in lines_info_t2]
         selected_tab2_lines = st.multiselect(
             "🎯 Pilih Area / Line yang Ingin Ditampilkan:",
@@ -798,10 +398,9 @@ else:
         
         filtered_lines_t2 = [info for info in lines_info_t2 if info[0] in selected_tab2_lines]
         st.markdown("<br>", unsafe_allow_html=True)
-
         x_kriteria_num = [str(i) for i in range(1, len(kriteria_labels) + 1)]
 
-        # Fungsi Helper Render Analisa Temuan NG
+        # HELPER ANALISIS TEMUAN NG (TAB 2)
         def render_line_analysis(title_area, targets_list, actuals_list):
             ng_items = []
             for k_name, act, tgt in zip(kriteria_labels, actuals_list, targets_list):
@@ -816,7 +415,14 @@ else:
                 with st.popover(f"🔍 Tindak Lanjut Analisa & Rekomendasi ({len(ng_items)} Temuan NG)", use_container_width=True):
                     list_items_html = ""
                     for k_name, act_val, tgt_val in ng_items:
-                        rec_data = RCA_RECOMMENDATION.get(k_name, {})
+                        # Cari rekomendasi RCA berdasarkan pencocokan nama
+                        rec_data = next((v for k, v in RCA_RECOMMENDATION.items() if k.lower() in k_name.lower() or k_name.lower() in k.lower()), {
+                            "cause": "Belum ada catatan detail.",
+                            "action_operator": "Pembersihan & penataan ulang.",
+                            "action_gl": "Monitoring area harian.",
+                            "action_foreman": "Evaluasi & audit berkala."
+                        })
+                        
                         list_items_html += (
                             f"<li style='margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed #ffcdd2;'>"
                             f"<b>{k_name}</b> (Nilai: <span style='color:#d32f2f; font-weight:bold;'>{act_val:.1f}</span> / Target: {tgt_val:.1f})<br>"
@@ -837,7 +443,6 @@ else:
             else:
                 st.success(f"🎉 Area {title_area} memenuhi seluruh kriteria target 5S (100% OK).")
 
-        # Rendering Grafik & Tabel Gambar 1
         if not filtered_lines_t2:
             st.warning("Silakan pilih minimal satu area pada filter di atas.")
         else:
@@ -852,21 +457,18 @@ else:
                 st.markdown(f"#### 🏭 AREA {area_code} &nbsp; <span class='badge-level {css_val}'>Level: {lvl_val} ({avg_val:.2f})</span>", unsafe_allow_html=True)
                 st.plotly_chart(create_exact_chart(x_kriteria_num[:len(t_k)], t_k, a_k, f"Kriteria Penilaian 5S - {area_code}", is_kriteria=True), use_container_width=True)
                 st.markdown(render_exact_table(kriteria_labels[:len(t_k)], t_k, a_k, "Kriteria"), unsafe_allow_html=True)
+                
+                # TAMPILKAN POP-OVER ANALISIS
                 render_line_analysis(area_code, t_k, a_k)
                 st.markdown("<hr style='margin: 30px 0; border: 0; border-top: 2px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
-
     # =========================================================================
-    # --- TAB 3: TREN BULANAN PER AREA (MENGGUNAKAN DF_BULANAN) ---
+    # --- TAB 3: TREN BULANAN PER AREA (GAMBAR 2) ---
     # =========================================================================
     with tab_monthly_area:
         st.markdown('<div class="section-header">REKAPITULASI TREN PENCAPAIAN 5S PER AREA (JANUARI - DESEMBER)</div>', unsafe_allow_html=True)
         
         all_cols_bulanan = df_bulanan.columns.tolist()
-        
-        TARGET_AREAS = ["PVC", "SMS", "STEX", "BTEX", "DFAS", "PPEX", "WH", "SHP", "QA/QC", "MTC"]
-        
-        # Deteksi otomatis pasangan Target & Aktual khusus Gambar 2
         area_pairs_t3 = []
         for area_code in TARGET_AREAS:
             c_t = next((c for c in all_cols_bulanan if area_code.lower() in c.lower() and 'target' in c.lower()), None)
@@ -884,11 +486,9 @@ else:
         if df_bulanan.empty or not filtered_pairs_t3:
             st.warning("⚠️ Data Tren Bulanan (Gambar 2) tidak terdeteksi. Pastikan baris bulan (January - December) tersedia di spreadsheet.")
         else:
-            # Mengambil label bulan langsung dari Kolom B di Gambar 2
             col_bulan_name = df_bulanan.columns[1]
             months_label_g2 = df_bulanan[col_bulan_name].dropna().tolist()
 
-            # 1. Rangkuman Summary Box Tab 3
             summary_stats = []
             for area_name, c_t, c_a in filtered_pairs_t3:
                 t_vals = [float(v) for v in df_bulanan[c_t].dropna() if str(v).replace('.','',1).isdigit()]
@@ -899,11 +499,8 @@ else:
                 ok_months = sum(1 for a_v, t_v in zip(a_vals, t_vals) if a_v >= t_v)
                 
                 summary_stats.append({
-                    "area": area_name,
-                    "avg_actual": avg_a,
-                    "avg_target": avg_t,
-                    "ok_months": ok_months,
-                    "total_months": len(a_vals)
+                    "area": area_name, "avg_actual": avg_a, "avg_target": avg_t,
+                    "ok_months": ok_months, "total_months": len(a_vals)
                 })
 
             if summary_stats:
@@ -932,11 +529,8 @@ else:
                     </div>
                 """, unsafe_allow_html=True)
 
-            # 2. Rendering Grafik & Tabel Tren Bulanan (Grid 2 Kolom)
             for i in range(0, len(filtered_pairs_t3), 2):
                 cols_m = st.columns(2)
-                
-                # Area 1
                 area_name1, col_t1, col_a1 = filtered_pairs_t3[i]
                 t_m1 = df_bulanan[col_t1].dropna().tolist()
                 a_m1 = df_bulanan[col_a1].dropna().tolist()
@@ -945,7 +539,6 @@ else:
                     st.plotly_chart(create_exact_chart(months_label_g2[:len(a_m1)], t_m1, a_m1, f"REKAP TREN BULANAN 5S - {area_name1.upper()}"), use_container_width=True)
                     st.markdown(render_exact_table(months_label_g2[:len(a_m1)], t_m1, a_m1, "Bulan"), unsafe_allow_html=True)
                 
-                # Area 2 (Jika Ada)
                 if i + 1 < len(filtered_pairs_t3):
                     area_name2, col_t2, col_a2 = filtered_pairs_t3[i+1]
                     t_m2 = df_bulanan[col_t2].dropna().tolist()
@@ -956,394 +549,22 @@ else:
                         st.markdown(render_exact_table(months_label_g2[:len(a_m2)], t_m2, a_m2, "Bulan"), unsafe_allow_html=True)
                 
                 st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
-    # --- TAB 4: PARETO & AI RECOMMENDATION ---
+
+    # =========================================================================
+    # --- TAB 4: PARETO ---
+    # =========================================================================
     with tab_pareto:
-        st.markdown('<div class="section-header">DIAGRAM PARETO: EVALUASI KRITERIA DENGAN NILAI TERRENDAH</div>', unsafe_allow_html=True)
-        
+        st.markdown('<div class="section-header">DIAGRAM PARETO EVALUASI KRITERIA</div>', unsafe_allow_html=True)
         kriteria_scores = {k: [] for k in kriteria_labels}
-        
-        for _, key_line in lines_info:
-            if key_line in selected_departments:
-                c_act_p = next((c for c in all_columns if key_line.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
-                if c_act_p:
-                    vals = df[c_act_p].dropna().tolist()
-                    for idx_k, val_k in enumerate(vals):
-                        if idx_k < len(kriteria_labels) and str(val_k).replace('.', '', 1).isdigit():
-                            kriteria_scores[kriteria_labels[idx_k]].append(float(val_k))
+        for area_code in TARGET_AREAS:
+            c_act_p = next((c for c in df_kriteria.columns if area_code.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
+            if c_act_p:
+                vals = df_kriteria[c_act_p].dropna().tolist()
+                for idx_k, val_k in enumerate(vals):
+                    if idx_k < len(kriteria_labels) and str(val_k).replace('.', '', 1).isdigit():
+                        kriteria_scores[kriteria_labels[idx_k]].append(float(val_k))
 
-        avg_scores = [
-            (sum(kriteria_scores[k]) / len(kriteria_scores[k])) if kriteria_scores[k] else 0.0
-            for k in kriteria_labels
-        ]
-
-        col_p1, col_p2 = st.columns([2, 1])
-        with col_p1:
-            st.plotly_chart(create_pareto_chart(kriteria_labels, avg_scores), use_container_width=True)
-            
-            df_rank_p = pd.DataFrame({'Kriteria': kriteria_labels, 'Nilai': avg_scores})
-            df_rank_p = df_rank_p.sort_values(by='Nilai', ascending=True).reset_index(drop=True)
-            top_3_lowest = df_rank_p.head(3).values.tolist()
-            
-            p_items_html = "".join([f"<li><b>{item[0]}</b> (Rata-rata Score: <b>{item[1]:.2f}</b>)</li>" for item in top_3_lowest])
-            
-            st.markdown(f"""
-                <div class="summary-box">
-                    <strong>📌 Kesimpulan Evaluasi Kriteria (Pareto):</strong><br>
-                    3 Kriteria dengan performa terendah yang membutuhkan tindakan korektif utama adalah:
-                    <ol style="margin: 5px 0 0 20px; padding: 0;">
-                        {p_items_html}
-                    </ol>
-                </div>
-            """, unsafe_allow_html=True)
-            
-        with col_p2:
-            st.markdown("##### 🔍 Ranking Kriteria Terrendah")
-            df_rank = pd.DataFrame({'Kriteria Penilaian': kriteria_labels, 'Rata-Rata Nilai': avg_scores})
-            df_rank = df_rank.sort_values(by='Rata-Rata Nilai', ascending=True).reset_index(drop=True)
-            df_rank.index = df_rank.index + 1
-            st.dataframe(df_rank, use_container_width=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        area_p_names = []
-        area_p_scores = []
-        filtered_selected_areas = [a for a in selected_departments if not any(kw in a.lower() for kw in EXCLUDE_KEYWORDS)]
-        JUMLAH_KRITERIA = len(kriteria_labels) if len(kriteria_labels) > 0 else 11
-
-        for area in filtered_selected_areas:
-            c_a = next((c for c in all_columns if area.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
-            if c_a:
-                total_score_area = df[c_a].dropna().sum()
-                avg_area_score = total_score_area / JUMLAH_KRITERIA
-                area_p_names.append(area)
-                area_p_scores.append(avg_area_score)
-
-        df_area_rank = pd.DataFrame({'Area': area_p_names, 'Rata_Skor': area_p_scores})
-        df_area_rank = df_area_rank.sort_values(by='Rata_Skor', ascending=True).reset_index(drop=True)
-        top_3_lowest_areas = df_area_rank.head(3).values.tolist()
-
-        with st.expander("⚙️ **KLIK DI SINI UNTUK MENGUBAH TEKS REKOMENDASI TINDAKAN (MANUAL)**"):
-            st.info("Anda bisa mengubah teks rekomendasi di bawah ini secara langsung. Teks pada kartu di bawah akan otomatis berubah.")
-            
-            col_ed1, col_ed2 = st.columns(2)
-            
-            custom_rekom_kriteria = {}
-            custom_rekom_area = {}
-
-            def get_default_krit_rekom(krit_name):
-                k_lower = krit_name.lower()
-                if any(w in k_lower for w in ['ringkas', 'seiri', 'pemilahan', 'sort']):
-                    return "Gelar Red Tag Campaign (labeli barang tidak terpakai), tetapkan area karantina barang bekas, dan buat aturan retensi dokumen/alat."
-                elif any(w in k_lower for w in ['rapi', 'seiton', 'penataan', 'layout', 'papan']):
-                    return "Buat Border Line / Demarkasi Area, pasang label/papan nama alat, dan terapkan prinsip '1 Tempat 1 Barang'."
-                elif any(w in k_lower for w in ['resik', 'seiso', 'pembersihan', 'kebersihan', 'sapu']):
-                    return "Jadwalkan Piket Kebersihan 5 Menit Harian sebelum/sesudah shift, sediakan alat kebersihan memadai, dan isolasi sumber debu/bocor."
-                elif any(w in k_lower for w in ['rawat', 'seiketsu', 'standar', 'sop', 'label']):
-                    return "Standarkan visual management (SOP visual, checklist audit harian) dan lakukan audit berkala oleh pimpinan area."
-                elif any(w in k_lower for w in ['rajin', 'shitsuke', 'kedisiplinan', 'budaya', 'sikap']):
-                    return "Lakukan Morning Briefing rutin terkait 5S, berikan penghargaan (Reward) area terbaik, dan tindak lanjuti temuan NG secara disiplin."
-                else:
-                    return "Lakukan analisis akar masalah (Fishbone/5-Why) bersama tim area dan buat Rencana Tindak Lanjut (CAPA) dengan target date yang jelas."
-
-            with col_ed1:
-                st.markdown("##### 🛠️ Edit Rekomendasi Kriteria")
-                for idx, item in enumerate(top_3_lowest):
-                    k_name = item[0]
-                    def_val = get_default_krit_rekom(k_name)
-                    custom_rekom_kriteria[k_name] = st.text_area(
-                        f"Rekomendasi untuk Kriteria: {k_name}",
-                        value=def_val,
-                        key=f"input_krit_{idx}",
-                        height=80
-                    )
-
-            default_area_rekom = [
-                "Lakukan Red Tag Campaign secara menyeluruh, sortir barang yang tidak terpakai, dan prioritaskan pembersihan area kerja (Seiri & Seiso).",
-                "Buat Standardized Work / Layout Signage yang jelas untuk penataan item serta atur jadwal piket rutin harian (Seiton & Seiketsu).",
-                "Tingkatkan keterlibatan supervisor area untuk melakukan Patroli 5S Harian serta evaluasi kepatuhan prosedur (Shitsuke)."
-            ]
-
-            with col_ed2:
-                st.markdown("##### 💡 Edit Rekomendasi Area")
-                for idx, item in enumerate(top_3_lowest_areas):
-                    a_name = item[0]
-                    def_val_a = default_area_rekom[idx] if idx < len(default_area_rekom) else default_area_rekom[0]
-                    custom_rekom_area[a_name] = st.text_area(
-                        f"Rekomendasi untuk Area: {a_name}",
-                        value=def_val_a,
-                        key=f"input_area_{idx}",
-                        height=80
-                    )
-
-        st.markdown('<div class="section-header">ANALISA 3 KRITERIA TERENDAH & REKOMENDASI PERBAIKAN</div>', unsafe_allow_html=True)
-
-        if top_3_lowest:
-            cols_krit_lowest = st.columns(len(top_3_lowest))
-
-            for i, item_krit in enumerate(top_3_lowest):
-                krit_name = item_krit[0]
-                krit_score = item_krit[1]
-                rekom_krit = custom_rekom_kriteria.get(krit_name, "")
-
-                with cols_krit_lowest[i]:
-                    st.markdown(f"""
-                        <div style="background-color: var(--secondary-background-color, #ffffff); border: 1px solid rgba(128,128,128,0.2); border-top: 4px solid #e65100; border-radius: 6px; padding: 12px; margin-bottom: 10px;">
-                            <span style="background-color: #e65100; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">
-                                KRITERIA RANK {i+1} TERENDAH
-                            </span>
-                            <h4 style="margin: 8px 0 4px 0; color: #004d73; font-size: 14px;">{krit_name}</h4>
-                            <p style="margin: 0 0 8px 0; font-size: 13px;">Skor Rata-Rata: <b style="color: #e65100;">{krit_score:.2f}</b></p>
-                            <hr style="margin: 6px 0; border: 0; border-top: 1px solid #eee;">
-                            <p style="margin: 0; font-size: 12px; line-height: 1.5;">
-                                <b>🛠️ Rekomendasi Tindakan:</b><br>{rekom_krit}
-                            </p>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<div class="section-header">ANALISA 3 AREA DENGAN PERFORMA TERENDAH & REKOMENDASI PERBAIKAN</div>', unsafe_allow_html=True)
-
-        if top_3_lowest_areas:
-            cols_lowest = st.columns(len(top_3_lowest_areas))
-
-            for i, item_area in enumerate(top_3_lowest_areas):
-                area_name = item_area[0]
-                area_score = item_area[1]
-                rekom_area = custom_rekom_area.get(area_name, "")
-
-                with cols_lowest[i]:
-                    st.markdown(f"""
-                        <div style="background-color: var(--secondary-background-color, #ffffff); border: 1px solid rgba(128,128,128,0.2); border-top: 4px solid #c62828; border-radius: 6px; padding: 12px; margin-bottom: 10px;">
-                            <span style="background-color: #c62828; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">
-                                AREA RANK {i+1} TERENDAH
-                            </span>
-                            <h4 style="margin: 8px 0 4px 0; color: #004d73; font-size: 14px;">{area_name}</h4>
-                            <p style="margin: 0 0 8px 0; font-size: 13px;">Skor Rata-Rata: <b style="color: #c62828;">{area_score:.2f}</b></p>
-                            <hr style="margin: 6px 0; border: 0; border-top: 1px solid #eee;">
-                            <p style="margin: 0; font-size: 12px; line-height: 1.5;">
-                                <b>💡 Rekomendasi:</b><br>{rekom_area}
-                            </p>
-                        </div>
-                    """, unsafe_allow_html=True)
-        else:
-            st.info("Data area tidak mencukupi untuk menampilkan analisis area terendah.")
-
-    # --- TAB 5: CAPA TRACKING & LOG INPUT TEMUAN NG ---
-    with tab_action:
-        st.markdown('<div class="section-header">TINDAKAN PERBAIKAN & CAPA TRACKING</div>', unsafe_allow_html=True)
-        
-        st.subheader("💡 1. Rekomendasi Solusi & Action Plan Berdasarkan RCA 5S")
-        
-        selected_rca_kriteria = st.selectbox(
-            "🎯 Pilih Kriteria Penilaian untuk Melihat Panduan Action Plan:",
-            options=list(RCA_RECOMMENDATION.keys()),
-            key="select_rca_kriteria_tab4"
-        )
-        
-        rec_info = RCA_RECOMMENDATION.get(selected_rca_kriteria, {})
-        
-        st.markdown(f"""
-            <div class="summary-box" style="background-color: var(--secondary-background-color, #f9f9f9); border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; margin-bottom: 25px;">
-                <p style="margin-bottom: 8px;"><b>🔍 Root Cause Analysis / Akar Masalah (Why):</b><br>{rec_info.get('cause', '-')}</p>
-                <hr style="margin: 10px 0; border: 0; border-top: 1px solid #e0e0e0;">
-                <p style="margin-bottom: 8px;"><b>💡 Rekomendasi Solusi & Matriks Action Plan (How):</b></p>
-                <div style="padding-left: 10px; font-size: 13px; line-height: 1.6;">
-                    &bull; <b>Operator:</b> <span style="color:#1b5e20;">{rec_info.get('action_operator', '-')}</span><br>
-                    &bull; <b>Group Leader (GL):</b> <span style="color:#0d47a1;">{rec_info.get('action_gl', '-')}</span><br>
-                    &bull; <b>Foreman:</b> <span style="color:#e65100;">{rec_info.get('action_foreman', '-')}</span><br>
-                    &bull; <b>Section Head (SH):</b> <span style="color:#4a148c;">{rec_info.get('action_sh', '-')}</span><br>
-                    &bull; <b>Department Head (DH):</b> <span style="color:#880e4f;">{rec_info.get('action_dh', '-')}</span>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("---")
-
-        st.subheader("📝 2. Log Input Temuan Patrol NG & Penugasan Action Plan")
-        
-        with st.form(key="form_input_patrol_ng", clear_on_submit=True):
-            col_f1, col_f2 = st.columns(2)
-            
-            with col_f1:
-                input_area = st.selectbox("Area / Department Temuan:", options=[line[0] for line in lines_info] if lines_info else ["Area Production", "Area Warehouse", "Area Office"])
-                input_kriteria = st.selectbox("Kriteria 5S Bermasalah:", options=kriteria_labels)
-                input_detail_problem = st.text_area("Detail Temuan Masalah (Kondisi Lapangan):", placeholder="Misal: Garis kuning pembatas terkelupas di dekat mesin A")
-                input_pic = st.text_input("PIC / Penanggung Jawab Perbaikan:", placeholder="Nama Operator / Group Leader")
-            
-            with col_f2:
-                input_target_date = st.date_input("Target Selesai Perbaikan:")
-                input_priority = st.selectbox("Tingkat Prioritas Penanganan:", options=["High (Urgent)", "Medium (Standard)", "Low (Rutin)"])
-                input_tier = st.selectbox("Penugasan Eksekusi Utama:", options=["Operator", "Group Leader", "Foreman", "Section Head", "Department Head"])
-                input_status = st.selectbox("Status Penanganan Saat Ini:", options=["Open (Belum Ditindak)", "On Progress (Proses Pengerjaan)", "Closed (Selesai)"])
-                
-                uploaded_file = st.file_uploader("📷 Upload Foto Temuan NG (JPG/PNG):", type=["jpg", "jpeg", "png"])
-
-            btn_submit_capa = st.form_submit_button("💾 Simpan Log Temuan & Action Plan")
-
-        if btn_submit_capa:
-            if input_detail_problem.strip() == "":
-                st.warning("⚠️ Mohon isi Detail Temuan Masalah sebelum menyimpan.")
-            else:
-                image_path = "-"
-                
-                if uploaded_file is not None:
-                    file_ext = uploaded_file.name.split(".")[-1]
-                    filename = f"img_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.{file_ext}"
-                    image_path = os.path.join(IMAGE_DIR, filename)
-                    
-                    with open(image_path, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
-
-                new_entry = {
-                    "Tanggal Input": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
-                    "Area": input_area,
-                    "Kriteria 5S": input_kriteria,
-                    "Detail Masalah": input_detail_problem,
-                    "PIC": input_pic if input_pic else "-",
-                    "Target Selesai": str(input_target_date),
-                    "Prioritas": input_priority,
-                    "Penanggung Jawab Tier": input_tier,
-                    "Status": input_status,
-                    "Foto Temuan": image_path
-                }
-                st.session_state["capa_log_data"].append(new_entry)
-                
-                try:
-                    save_capa_to_gsheets(st.session_state["capa_log_data"])
-                    st.success(f"✅ Data temuan NG & Foto di area '{input_area}' berhasil disimpan!")
-                except Exception as e:
-                    st.error(f"Gagal menyimpan ke penyimpanan lokal: {e}")
-
-                st.rerun()
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        st.subheader("📋 3. Daftar Monitoring Action Plan (CAPA Log)")
-        
-        if st.session_state["capa_log_data"]:
-            df_capa_log = pd.DataFrame(st.session_state["capa_log_data"])
-            
-            if "Target Selesai" in df_capa_log.columns:
-                df_capa_log["Target Selesai"] = pd.to_datetime(df_capa_log["Target Selesai"], errors="coerce").dt.date
-            
-            status_filter = st.multiselect(
-                "Filter Status CAPA:",
-                options=["Open (Belum Ditindak)", "On Progress (Proses Pengerjaan)", "Closed (Selesai)"],
-                default=["Open (Belum Ditindak)", "On Progress (Proses Pengerjaan)", "Closed (Selesai)"]
-            )
-            
-            df_filtered_capa = df_capa_log[df_capa_log["Status"].isin(status_filter)]
-
-            st.caption("💡 **Tips:** Kamu bisa mengubah status, PIC, target tanggal, atau kolom lainnya secara langsung pada tabel di bawah ini.")
-
-            edited_df = st.data_editor(
-                df_filtered_capa,
-                column_config={
-                    "Status": st.column_config.SelectboxColumn(
-                        "Status Penanganan",
-                        help="Ubah status progres penanganan CAPA",
-                        options=[
-                            "Open (Belum Ditindak)",
-                            "On Progress (Proses Pengerjaan)",
-                            "Closed (Selesai)"
-                        ],
-                        required=True,
-                    ),
-                    "Target Selesai": st.column_config.DateColumn(
-                        "Target Selesai",
-                        format="YYYY-MM-DD"
-                    ),
-                    "Prioritas": st.column_config.SelectboxColumn(
-                        "Prioritas",
-                        options=["High (Urgent)", "Medium (Standard)", "Low (Rutin)"]
-                    ),
-                    "Foto Temuan": st.column_config.TextColumn(
-                        "Path Foto", 
-                        disabled=True
-                    )
-                },
-                disabled=["Tanggal Input", "Area", "Kriteria 5S", "Detail Masalah"],
-                use_container_width=True,
-                num_rows="dynamic",
-                key="capa_editor"
-            )
-
-            if st.button("💾 Simpan Perubahan Status / Tabel", type="primary"):
-                for idx, row in edited_df.iterrows():
-                    for orig_entry in st.session_state["capa_log_data"]:
-                        if orig_entry["Tanggal Input"] == row["Tanggal Input"] and orig_entry["Detail Masalah"] == row["Detail Masalah"]:
-                            orig_entry["Status"] = row["Status"]
-                            orig_entry["PIC"] = row["PIC"]
-                            orig_entry["Target Selesai"] = str(row["Target Selesai"])
-                            orig_entry["Prioritas"] = row["Prioritas"]
-                            orig_entry["Penanggung Jawab Tier"] = row["Penanggung Jawab Tier"]
-                            break
-                
-                try:
-                    save_capa_to_gsheets(st.session_state["capa_log_data"])
-                    st.success("✅ Perubahan status CAPA Log berhasil diperbarui!")
-                except Exception as e:
-                    st.error(f"Gagal memperbarui data: {e}")
-                    
-                st.rerun()
-
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            st.subheader("🖼️ 4. Galeri Foto Temuan NG Lapangan")
-            
-            has_image = False
-            cols_img = st.columns(3)
-            col_idx = 0
-
-            for item in st.session_state["capa_log_data"]:
-                img_path = item.get("Foto Temuan", "-")
-                
-                if isinstance(img_path, str) and img_path.strip() not in ["-", "", "nan", "None"]:
-                    if os.path.exists(img_path):
-                        has_image = True
-                        with cols_img[col_idx % 3]:
-                            st.image(
-                                img_path, 
-                                caption=f"📍 {item.get('Area', '-')}\n🗓️ {item.get('Tanggal Input', '-')} | Status: {item.get('Status', '-')}", 
-                                use_container_width=True
-                            )
-                        col_idx += 1
-
-            if not has_image:
-                st.info("Belum ada foto temuan yang diunggah.")
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            csv_capa = edited_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Download Data CAPA (CSV)",
-                data=csv_capa,
-                file_name="CAPA_Tracking_5S_Report.csv",
-                mime="text/csv"
-            )
-        else:
-            st.info("Belum ada log temuan yang diinputkan. Gunakan form di atas untuk mencatat temuan patrol 5S.")
-
-    # --- KESIMPULAN UMUM KESELURUHAN (GLOBAL SUMMARY) ---
-    st.markdown("---")
-    grand_avg_score = (sum(avg_scores) / len(avg_scores)) if 'avg_scores' in locals() and avg_scores else 0.0
-    global_level = get_level_5s(grand_avg_score)[0]
-    
-    top_lowest_kriteria = df_rank_p.head(2)['Kriteria'].tolist() if 'df_rank_p' in locals() else []
-    top_lowest_str = " & ".join([f"<b>{k}</b>" for k in top_lowest_kriteria]) if top_lowest_kriteria else "tertentu"
-
-    if ng_areas:
-        action_plan_str = f"Fokus utama perbaikan dialokasikan pada area <b>{', '.join(ng_areas)}</b>, khususnya penanganan kriteria {top_lowest_str}."
-    else:
-        action_plan_str = "Seluruh area telah berhasil memenuhi target minimal 5S, pertahankan performa dengan konsistensi patrol berkala."
-
-    st.markdown(f"""
-        <div class="summary-box-global">
-            <h3 style="margin: 0 0 8px 0; font-size: 16px;">📝 KESIMPULAN UMUM PERFORMA PATROL 5S</h3>
-            Secara keseluruhan, rata-rata performa penerapan Patrol 5S di seluruh department berada pada skor <b>{grand_avg_score:.2f}</b> dengan predikat <b>LEVEL {str(global_level).upper()}</b>.<br>
-            {action_plan_str}
-        </div>
-    """, unsafe_allow_html=True)
-
-    with st.expander("📋 Lihat Raw Data Google Sheets"):
-        st.dataframe(df, use_container_width=True)
+        avg_scores = [(sum(kriteria_scores[k]) / len(kriteria_scores[k])) if kriteria_scores[k] else 0.0 for k in kriteria_labels]
+        st.plotly_chart(create_pareto_chart(kriteria_labels, avg_scores), use_container_width=True)
+else:
+    st.error("Data Google Sheets kosong.")
