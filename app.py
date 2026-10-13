@@ -836,442 +836,79 @@ else:
                 st.markdown("<hr style='margin: 30px 0; border: 0; border-top: 2px dashed #cbd5e1;'>", unsafe_allow_html=True)
 
 # ============================================================
-# TAB 3: REKAP PENCAPAIAN 5S PER AREA - BULAN BERJALAN
-# ============================================================
-
-with tab_monthly_area:
-
-    import re
-    from datetime import datetime
-
-    # --------------------------------------------------------
-    # 1. HEADER TAB 3
-    # --------------------------------------------------------
-
-    current_date = datetime.now()
-    current_month_number = current_date.month
-    current_year = current_date.year
-
-    MONTH_NAMES_ID = {
-        1: "JANUARI",
-        2: "FEBRUARI",
-        3: "MARET",
-        4: "APRIL",
-        5: "MEI",
-        6: "JUNI",
-        7: "JULI",
-        8: "AGUSTUS",
-        9: "SEPTEMBER",
-        10: "OKTOBER",
-        11: "NOVEMBER",
-        12: "DESEMBER"
-    }
-
-    current_month_name = MONTH_NAMES_ID[current_month_number]
-
-    st.markdown(
-        f"""
-        <div class="section-header">
-            REKAPITULASI PENCAPAIAN 5S PER AREA
-            <br>
-            <span style="font-size:16px;">
-                BULAN {current_month_name} {current_year}
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    try:
-        SHEET3_URL
-    except NameError:
-        SHEET3_URL = (
-            "https://docs.google.com/spreadsheets/d/e/"
-            "2PACX-1vQU_jpdzrymx_0mJKGVDopip0DPhnmDLIbsTHgVnqgaJZZayJUp-UPF1MF6H6soCA"
-            "/pub?output=csv"
-        )
-
-    # --------------------------------------------------------
-    # 3. FUNGSI MEMBACA SHEET 3
-    # --------------------------------------------------------
-
-    @st.cache_data(ttl=300)
-    def load_sheet3_data(url):
-        try:
-            df_s3 = pd.read_csv(url)
-            # Bersihkan nama kolom
-            df_s3.columns = (
-                df_s3.columns
-                .astype(str)
-                .str.strip()
-                .str.replace("\n", " ", regex=False)
-                .str.replace(r"\s+", " ", regex=True)
-            )
-
-            # Bersihkan cell string
-            for col in df_s3.columns:
-                if df_s3[col].dtype == "object":
-                    df_s3[col] = (
-                        df_s3[col]
-                        .astype(str)
-                        .str.strip()
-                        .replace(
-                            {
-                                "nan": None,
-                                "NaN": None,
-                                "None": None,
-                                "": None
-                            }
-                        )
-                    )
-            return df_s3
-
-        except Exception as e:
-            st.error(f"Gagal membaca data Sheet 3: {str(e)}")
-            return pd.DataFrame()
-
-    df_sheet3 = load_sheet3_data(SHEET3_URL)
-
-    # --------------------------------------------------------
-    # 4. VALIDASI DATA
-    # --------------------------------------------------------
-
-    if df_sheet3.empty:
-        st.error(
-            """
-            ❌ Data Sheet 3 tidak dapat dibaca.
-
-            Pastikan:
-            1. Spreadsheet sudah dipublikasikan ke web.
-            2. Sheet yang digunakan Tab 3 sudah dipublikasikan.
-            3. URL CSV Sheet 3 sudah benar.
-            """
-        )
-        st.stop()
-
-    # --------------------------------------------------------
-    # 5. FUNGSI KONVERSI NILAI ANGKA
-    # --------------------------------------------------------
-
-    def convert_to_number(value):
-        if pd.isna(value):
-            return None
-        text = str(value).strip()
-        if text == "":
-            return None
-
-        # Hilangkan karakter yang tidak diperlukan
-        text = text.replace("%", "").replace(" ", "")
-
-        # Jika format Indonesia: 4,00
-        if "," in text and "." not in text:
-            text = text.replace(",", ".")
-        # Jika format 4.000,00
-        elif "," in text and "." in text:
-            text = text.replace(".", "")
-            text = text.replace(",", ".")
-
-        try:
-            return float(text)
-        except Exception:
-            return None
-
-    # --------------------------------------------------------
-    # 6. DETEKSI KOLOM BULAN
-    # --------------------------------------------------------
-
-    all_columns_s3 = df_sheet3.columns.tolist()
-    month_column = None
-    possible_month_columns = [
-        "bulan", "month", "periode", "period", "tanggal", "date", "periode bulan"
-    ]
-
-    for col in all_columns_s3:
-        col_lower = str(col).strip().lower()
-        if col_lower in possible_month_columns:
-            month_column = col
-            break
-
-    if month_column is None:
-        for col in all_columns_s3:
-            col_lower = str(col).strip().lower()
-            if (
-                "bulan" in col_lower
-                or "month" in col_lower
-                or "periode" in col_lower
-                or "period" in col_lower
-            ):
-                month_column = col
-                break
-
-    # --------------------------------------------------------
-    # 7. FUNGSI NORMALISASI BULAN
-    # --------------------------------------------------------
-
-    def get_month_number(value):
-        if pd.isna(value):
-            return None
-        text = str(value).strip().lower()
-
-        month_mapping = {
-            "januari": 1, "jan": 1, "februari": 2, "feb": 2,
-            "maret": 3, "mar": 3, "april": 4, "apr": 4,
-            "mei": 5, "may": 5, "juni": 6, "jun": 6,
-            "juli": 7, "jul": 7, "agustus": 8, "agu": 8, "ags": 8, "aug": 8,
-            "september": 9, "sep": 9, "oktober": 10, "okt": 10, "oct": 10,
-            "november": 11, "nov": 11, "desember": 12, "des": 12,
-            "january": 1, "february": 2, "march": 3, "june": 6, "july": 7, "august": 8, "october": 10, "december": 12
-        }
-
-        if text in month_mapping:
-            return month_mapping[text]
-
-        try:
-            number = int(float(text))
-            if 1 <= number <= 12:
-                return number
-        except Exception:
-            pass
-
-        try:
-            parsed_date = pd.to_datetime(value, errors="coerce", dayfirst=True)
-            if not pd.isna(parsed_date):
-                return int(parsed_date.month)
-        except Exception:
-            pass
-
-        for month_name, month_num in month_mapping.items():
-            if month_name in text:
-                return month_num
-
-        return None
-
-    # --------------------------------------------------------
-    # 8. PILIH BARIS BULAN BERJALAN
-    # --------------------------------------------------------
-
-    current_month_df = pd.DataFrame()
-
-    if month_column is not None:
-        df_sheet3["_MONTH_NUMBER_"] = df_sheet3[month_column].apply(get_month_number)
-        current_month_df = df_sheet3[df_sheet3["_MONTH_NUMBER_"] == current_month_number].copy()
-
-    if current_month_df.empty:
-        month_search_pattern = current_month_name.lower()
-        candidate_rows = []
-        for idx, row in df_sheet3.iterrows():
-            row_text = " ".join([str(v).strip().lower() for v in row.tolist() if not pd.isna(v)])
-            if month_search_pattern in row_text:
-                candidate_rows.append(idx)
-
-        if candidate_rows:
-            current_month_df = df_sheet3.loc[candidate_rows].copy()
-
-    if current_month_df.empty:
-        st.warning(
-            f"⚠️ Data untuk bulan **{current_month_name} {current_year}** belum ditemukan pada Sheet 3."
-        )
-        with st.expander("🔍 Lihat struktur data Sheet 3"):
-            st.write("Kolom yang terbaca:", all_columns_s3)
-            st.dataframe(df_sheet3.head(20), use_container_width=True)
-        st.stop()
-
-    # --------------------------------------------------------
-    # 11. DETEKSI AREA - TARGET & AKTUAL
-    # --------------------------------------------------------
-
-    area_pairs_s3 = []
-
-    for col in all_columns_s3:
-        col_lower = str(col).lower().strip()
-        if col == month_column:
-            continue
-
-        if ("target" in col_lower and "month" not in col_lower and "bulan" not in col_lower):
-            clean_area = str(col).replace("Target", "").replace("target", "").replace("_", " ").strip()
-            clean_area = re.sub(r"\s+", " ", clean_area).strip()
-
-            if any(kw in clean_area.lower() for kw in EXCLUDE_KEYWORDS):
-                continue
-
-            actual_column = None
-            for candidate in all_columns_s3:
-                candidate_lower = str(candidate).lower().strip()
-                if candidate == col:
-                    continue
-
-                area_match = clean_area.lower() in candidate_lower
-                actual_match = any(key in candidate_lower for key in ["aktual", "actual", "score", "nilai", "pencapaian", "hasil"])
-
-                if area_match and actual_match:
-                    actual_column = candidate
-                    break
-
-            if actual_column is not None:
-                area_pairs_s3.append((clean_area, col, actual_column))
-
-    if selected_departments:
-        filtered_pairs_s3 = [
-            pair for pair in area_pairs_s3
-            if any(sd.lower() in pair[0].lower() or pair[0].lower() in sd.lower() for sd in selected_departments)
-        ]
-    else:
-        filtered_pairs_s3 = area_pairs_s3
-
-    if not filtered_pairs_s3:
-        filtered_pairs_s3 = area_pairs_s3
-
-    # --------------------------------------------------------
-    # 13. HITUNG DATA BULAN BERJALAN
-    # --------------------------------------------------------
-
-    summary_stats = []
-
-    for area_name, target_col, actual_col in filtered_pairs_s3:
-        target_values = []
-        actual_values = []
-
-        for value in current_month_df[target_col]:
-            number = convert_to_number(value)
-            if number is not None:
-                target_values.append(number)
-
-        for value in current_month_df[actual_col]:
-            number = convert_to_number(value)
-            if number is not None:
-                actual_values.append(number)
-
-        avg_target = sum(target_values) / len(target_values) if target_values else 0
-        avg_actual = sum(actual_values) / len(actual_values) if actual_values else 0
-        status = "ACHIEVED" if avg_actual >= avg_target else "NOT ACHIEVED"
-
-        summary_stats.append({
-            "area": area_name,
-            "target": avg_target,
-            "actual": avg_actual,
-            "status": status
-        })
-
-    # --------------------------------------------------------
-    # 14. BOX RANGKUMAN (DIUBAH SANGAT RAPAT AGAR RENDER HARMONIS)
-    # --------------------------------------------------------
-
-    if summary_stats:
-        best_area = max(summary_stats, key=lambda x: x["actual"])
-        lowest_area = min(summary_stats, key=lambda x: x["actual"])
-
-        achieved_areas = [item["area"] for item in summary_stats if item["status"] == "ACHIEVED"]
-        not_achieved_areas = [item["area"] for item in summary_stats if item["status"] == "NOT ACHIEVED"]
-
-        achieved_str = ", ".join(achieved_areas) if achieved_areas else "Belum ada area"
-        not_achieved_str = ", ".join(not_achieved_areas) if not_achieved_areas else "Semua area mencapai target"
-
-        st.markdown(
-            f'<div class="summary-box" style="background-color: var(--secondary-background-color, #ffffff); border-left: 5px solid #004d73; margin-bottom: 25px;"><h4 style="margin: 0 0 12px 0; color: #004d73; font-size: 16px;">📋 RANGKUMAN PENCAPAIAN 5S - {current_month_name} {current_year}</h4><table style="width:100%; border-collapse:collapse; font-size:13px; line-height:1.7;"><tr><td style="width:35%; font-weight:bold;">Area Performa Terbaik</td><td>: <b>{best_area["area"].upper()}</b> - Aktual: <b style="color:#2e7d32;">{best_area["actual"]:.2f}</b></td></tr><tr><td style="font-weight:bold;">Area Perlu Perhatian</td><td>: <b>{lowest_area["area"].upper()}</b> - Aktual: <b style="color:#c62828;">{lowest_area["actual"]:.2f}</b></td></tr><tr><td style="font-weight:bold;">Area Mencapai Target</td><td>: <b>{achieved_str}</b></td></tr><tr><td style="font-weight:bold;">Area Belum Mencapai Target</td><td>: <b>{not_achieved_str}</b></td></tr><tr><td style="font-weight:bold;">Periode Data</td><td>: <b>{current_month_name} {current_year}</b> — hanya data bulan berjalan</td></tr></table></div>',
-            unsafe_allow_html=True
-        )
-
-    # --------------------------------------------------------
-    # 15. TABEL REKAP BULAN BERJALAN
-    # --------------------------------------------------------
-
-    st.markdown(
-        f'<div class="section-header">DETAIL PENCAPAIAN 5S - {current_month_name} {current_year}</div>',
-        unsafe_allow_html=True
-    )
-
-    result_table = []
-    for item in summary_stats:
-        target = item["target"]
-        actual = item["actual"]
-        gap = actual - target
-        achievement = (actual / target) * 100 if target != 0 else 0
-
-        result_table.append({
-            "Area": item["area"],
-            "Target": round(target, 2),
-            "Aktual": round(actual, 2),
-            "Gap": round(gap, 2),
-            "Achievement (%)": round(achievement, 1),
-            "Status": item["status"]
-        })
-
-    df_result_s3 = pd.DataFrame(result_table)
-
-    if not df_result_s3.empty:
-        df_result_s3 = df_result_s3.sort_values(by="Aktual", ascending=False).reset_index(drop=True)
-        df_result_s3.insert(0, "Rank", range(1, len(df_result_s3) + 1))
-        st.dataframe(df_result_s3, use_container_width=True, hide_index=True)
-
-    # --------------------------------------------------------
-    # 16. GRAFIK PER AREA
-    # --------------------------------------------------------
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="section-header">GRAFIK PENCAPAIAN 5S - {current_month_name} {current_year}</div>',
-        unsafe_allow_html=True
-    )
-
-    for i in range(0, len(filtered_pairs_s3), 2):
-        cols_m = st.columns(2)
-
-        area_name1, target_col1, actual_col1 = filtered_pairs_s3[i]
-        target_values1 = [convert_to_number(v) for v in current_month_df[target_col1] if convert_to_number(v) is not None]
-        actual_values1 = [convert_to_number(v) for v in current_month_df[actual_col1] if convert_to_number(v) is not None]
-
-        target1 = sum(target_values1) / len(target_values1) if target_values1 else 0
-        actual1 = sum(actual_values1) / len(actual_values1) if actual_values1 else 0
-
-        months_label1 = [current_month_name]
-        target_chart1 = [target1]
-        actual_chart1 = [actual1]
-
-        with cols_m[0]:
-            st.plotly_chart(
-                create_exact_chart(months_label1, target_chart1, actual_chart1, f"REKAP 5S - {area_name1.upper()} - {current_month_name}"),
-                use_container_width=True
-            )
-            df_area1 = pd.DataFrame({
-                "Bulan": [current_month_name],
-                "Target": [round(target1, 2)],
-                "Aktual": [round(actual1, 2)],
-                "Gap": [round(actual1 - target1, 2)]
-            })
-            st.dataframe(df_area1, use_container_width=True, hide_index=True)
-
-        if i + 1 < len(filtered_pairs_s3):
-            area_name2, target_col2, actual_col2 = filtered_pairs_s3[i + 1]
-            target_values2 = [convert_to_number(v) for v in current_month_df[target_col2] if convert_to_number(v) is not None]
-            actual_values2 = [convert_to_number(v) for v in current_month_df[actual_col2] if convert_to_number(v) is not None]
-
-            target2 = sum(target_values2) / len(target_values2) if target_values2 else 0
-            actual2 = sum(actual_values2) / len(actual_values2) if actual_values2 else 0
-
-            months_label2 = [current_month_name]
-            target_chart2 = [target2]
-            actual_chart2 = [actual2]
-
-            with cols_m[1]:
-                st.plotly_chart(
-                    create_exact_chart(months_label2, target_chart2, actual_chart2, f"REKAP 5S - {area_name2.upper()} - {current_month_name}"),
-                    use_container_width=True
-                )
-                df_area2 = pd.DataFrame({
-                    "Bulan": [current_month_name],
-                    "Target": [round(target2, 2)],
-                    "Aktual": [round(actual2, 2)],
-                    "Gap": [round(actual2 - target2, 2)]
+    # TAB 3: REKAP PENCAPAIAN 5S PER AREA (TREN 12 BULAN JAN - DEC)
+    # ============================================================
+    with tab_monthly_area:
+        st.markdown('<div class="section-header">REKAPITULASI TREN PENCAPAIAN 5S PER AREA (JANUARI - DESEMBER)</div>', unsafe_allow_html=True)
+        
+        # 10 Area Pabrik
+        TARGET_AREAS = ["PVC", "SMS", "STEX", "BTEX", "DFAS", "PPEX", "WH", "SHP", "QA/QC", "MTC"]
+        
+        area_pairs_t3 = []
+        for area_code in TARGET_AREAS:
+            c_t = next((c for c in df_bulanan.columns if area_code.lower() in c.lower() and 'target' in c.lower()), None)
+            c_a = next((c for c in df_bulanan.columns if area_code.lower() in c.lower() and any(k in c.lower() for k in ['aktual', 'actual', 'score', 'nilai'])), None)
+            if c_t and c_a:
+                area_pairs_t3.append((area_code, c_t, c_a))
+
+        filtered_pairs_t3 = [p for p in area_pairs_t3 if not selected_departments or any(sd.lower() in p[0].lower() for sd in selected_departments)]
+
+        if df_bulanan.empty or not filtered_pairs_t3:
+            st.warning("⚠️ Data Tren Bulanan tidak terdeteksi pada spreadsheet.")
+        else:
+            col_bulan_name = df_bulanan.columns[1]
+            months_label_g2 = df_bulanan[col_bulan_name].dropna().tolist()
+
+            # Rangkuman Tren 12 Bulan
+            summary_stats = []
+            for area_name, c_t, c_a in filtered_pairs_t3:
+                s_t = df_bulanan[c_t].iloc[:, 0] if isinstance(df_bulanan[c_t], pd.DataFrame) else df_bulanan[c_t]
+                s_a = df_bulanan[c_a].iloc[:, 0] if isinstance(df_bulanan[c_a], pd.DataFrame) else df_bulanan[c_a]
+                
+                t_vals = [float(v) for v in s_t.dropna() if str(v).replace('.','',1).isdigit()]
+                a_vals = [float(v) for v in s_a.dropna() if str(v).replace('.','',1).isdigit()]
+                
+                avg_a = sum(a_vals) / len(a_vals) if a_vals else 0.0
+                avg_t = sum(t_vals) / len(t_vals) if t_vals else 4.0
+                ok_months = sum(1 for a_v, t_v in zip(a_vals, t_vals) if a_v >= t_v)
+                
+                summary_stats.append({
+                    "area": area_name, "avg_actual": avg_a, "avg_target": avg_t,
+                    "ok_months": ok_months, "total_months": len(a_vals)
                 })
-                st.dataframe(df_area2, use_container_width=True, hide_index=True)
 
-        st.markdown('<hr style="margin:25px 0; border:0; border-top:1px dashed #cbd5e1;">', unsafe_allow_html=True)
+            if summary_stats:
+                best_area = max(summary_stats, key=lambda x: x['avg_actual'])
+                lowest_area = min(summary_stats, key=lambda x: x['avg_actual'])
+                consistent_areas = [s['area'] for s in summary_stats if s['ok_months'] == s['total_months'] and s['total_months'] > 0]
+                consistent_str = ", ".join(consistent_areas) if consistent_areas else "Belum ada area yang 100% konsisten tiap bulan"
 
-    with st.expander("🔧 Informasi Data Tab 3"):
-        st.write(f"**Tanggal sistem:** {current_date.strftime('%d-%m-%Y')}")
-        st.write(f"**Bulan berjalan:** {current_month_name} {current_year}")
-        st.write(f"**Kolom bulan:** {month_column}")
-        st.write(f"**Jumlah baris bulan berjalan:** {len(current_month_df)}")
+                st.markdown(f'<div class="summary-box" style="background-color: var(--secondary-background-color, #ffffff); border-left: 5px solid #004d73; margin-bottom: 25px;"><h4 style="margin: 0 0 8px 0; color: #004d73; font-size: 15px;">📋 RANGKUMAN REKAPITULASI TREN BULANAN PER AREA</h4><table style="width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.6;"><tr><td style="width: 32%; font-weight: bold;">Area Performa Terbaik (Jan - Dec)</td><td>: <b>{best_area["area"].upper()}</b> (Rata-rata Skor: <b style="color:#2e7d32;">{best_area["avg_actual"]:.2f}</b>)</td></tr><tr><td style="font-weight: bold;">Area Perlu Perhatian Khusus</td><td>: <b>{lowest_area["area"].upper()}</b> (Rata-rata Skor: <b style="color:#c62828;">{lowest_area["avg_actual"]:.2f}</b>)</td></tr><tr><td style="font-weight: bold;">Area 100% Target Achieved (Tiap Bulan)</td><td>: <b>{consistent_str}</b></td></tr></table></div>', unsafe_allow_html=True)
+
+            # Menampilkan Grafik & Tabel Rekap 12 Bulan Per Area (2 Kolom)
+            for i in range(0, len(filtered_pairs_t3), 2):
+                cols_m = st.columns(2)
+                
+                # Area 1
+                area_name1, col_t1, col_a1 = filtered_pairs_t3[i]
+                s_t1 = df_bulanan[col_t1].iloc[:, 0] if isinstance(df_bulanan[col_t1], pd.DataFrame) else df_bulanan[col_t1]
+                s_a1 = df_bulanan[col_a1].iloc[:, 0] if isinstance(df_bulanan[col_a1], pd.DataFrame) else df_bulanan[col_a1]
+                
+                with cols_m[0]:
+                    st.plotly_chart(create_exact_chart(months_label_g2[:len(s_a1)], s_t1.dropna().tolist(), s_a1.dropna().tolist(), f"GRAFIK PENILAIAN PATROL BULANAN - AREA: {area_name1.upper()}"), use_container_width=True)
+                    st.markdown(render_exact_table(months_label_g2[:len(s_a1)], s_t1.dropna().tolist(), s_a1.dropna().tolist(), "Kriteria"), unsafe_allow_html=True)
+                
+                # Area 2
+                if i + 1 < len(filtered_pairs_t3):
+                    area_name2, col_t2, col_a2 = filtered_pairs_t3[i+1]
+                    s_t2 = df_bulanan[col_t2].iloc[:, 0] if isinstance(df_bulanan[col_t2], pd.DataFrame) else df_bulanan[col_t2]
+                    s_a2 = df_bulanan[col_a2].iloc[:, 0] if isinstance(df_bulanan[col_a2], pd.DataFrame) else df_bulanan[col_a2]
+                    
+                    with cols_m[1]:
+                        st.plotly_chart(create_exact_chart(months_label_g2[:len(s_a2)], s_t2.dropna().tolist(), s_a2.dropna().tolist(), f"GRAFIK PENILAIAN PATROL BULANAN - AREA: {area_name2.upper()}"), use_container_width=True)
+                        st.markdown(render_exact_table(months_label_g2[:len(s_a2)], s_t2.dropna().tolist(), s_a2.dropna().tolist(), "Kriteria"), unsafe_allow_html=True)
+
+                st.markdown("<hr style='margin: 25px 0; border: 0; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
         st.write("**Kolom Sheet 3:**", all_columns_s3)
 
     # --- TAB 4: PARETO & AI RECOMMENDATION ---
