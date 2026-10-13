@@ -227,7 +227,7 @@ RCA_RECOMMENDATION = {
         "action_gl": "Inspeksi penerapan Clean Desk Policy dan kerapian garis stiker penataan meja sebelum shift berakhir.",
         "action_foreman": "Lakukan Red Tag Campaign (Tag Merah) untuk memindahkan barang non-standar dari meja kerja.",
         "action_sh": "Tetapkan Visual Layout Matrix (posisi standar barang) di seluruh meja kerja lapangan.",
-        "action_dh": "Tegakkan budaya kerja SORTIR dan rapi melalui evaluasi rutin manajemen."
+        "action_dh": "Tegakkan budaya SORTIR dan rapi melalui evaluasi rutin manajemen."
     },
     "Peralatan Kerja": {
         "cause": "(1) Alat kerja/tools sering hilang/tercecer. (2) Tidak ada pengecekan kelengkapan alat saat pergantian shift.",
@@ -882,33 +882,14 @@ with tab_monthly_area:
         unsafe_allow_html=True
     )
 
-
-    # --------------------------------------------------------
-    # 2. URL DATA SHEET 3
-    # --------------------------------------------------------
-    #
-    # PENTING:
-    # Jika spreadsheet dipublikasikan sebagai CSV,
-    # gunakan URL khusus Sheet 3 / GID Sheet 3.
-    #
-    # Contoh:
-    # https://docs.google.com/spreadsheets/d/e/XXXX/pub
-    # ?gid=123456789&single=true&output=csv
-    #
-    # Jika SHEET3_URL sudah didefinisikan sebelumnya,
-    # kode akan menggunakannya.
-    # --------------------------------------------------------
-
     try:
         SHEET3_URL
     except NameError:
-
         SHEET3_URL = (
             "https://docs.google.com/spreadsheets/d/e/"
             "2PACX-1vQU_jpdzrymx_0mJKGVDopip0DPhnmDLIbsTHgVnqgaJZZayJUp-UPF1MF6H6soCA"
             "/pub?output=csv"
         )
-
 
     # --------------------------------------------------------
     # 3. FUNGSI MEMBACA SHEET 3
@@ -916,11 +897,8 @@ with tab_monthly_area:
 
     @st.cache_data(ttl=300)
     def load_sheet3_data(url):
-
         try:
-
             df_s3 = pd.read_csv(url)
-
             # Bersihkan nama kolom
             df_s3.columns = (
                 df_s3.columns
@@ -932,9 +910,7 @@ with tab_monthly_area:
 
             # Bersihkan cell string
             for col in df_s3.columns:
-
                 if df_s3[col].dtype == "object":
-
                     df_s3[col] = (
                         df_s3[col]
                         .astype(str)
@@ -948,27 +924,19 @@ with tab_monthly_area:
                             }
                         )
                     )
-
             return df_s3
 
         except Exception as e:
-
-            st.error(
-                f"Gagal membaca data Sheet 3: {str(e)}"
-            )
-
+            st.error(f"Gagal membaca data Sheet 3: {str(e)}")
             return pd.DataFrame()
 
-
     df_sheet3 = load_sheet3_data(SHEET3_URL)
-
 
     # --------------------------------------------------------
     # 4. VALIDASI DATA
     # --------------------------------------------------------
 
     if df_sheet3.empty:
-
         st.error(
             """
             ❌ Data Sheet 3 tidak dapat dibaca.
@@ -979,223 +947,104 @@ with tab_monthly_area:
             3. URL CSV Sheet 3 sudah benar.
             """
         )
-
         st.stop()
-
 
     # --------------------------------------------------------
     # 5. FUNGSI KONVERSI NILAI ANGKA
     # --------------------------------------------------------
 
     def convert_to_number(value):
-
         if pd.isna(value):
             return None
-
         text = str(value).strip()
-
         if text == "":
             return None
 
         # Hilangkan karakter yang tidak diperlukan
-        text = (
-            text
-            .replace("%", "")
-            .replace(" ", "")
-        )
+        text = text.replace("%", "").replace(" ", "")
 
         # Jika format Indonesia: 4,00
         if "," in text and "." not in text:
-
             text = text.replace(",", ".")
-
         # Jika format 4.000,00
         elif "," in text and "." in text:
-
-            # Asumsikan titik sebagai pemisah ribuan
-            # dan koma sebagai desimal
             text = text.replace(".", "")
             text = text.replace(",", ".")
 
         try:
             return float(text)
-
         except Exception:
             return None
-
 
     # --------------------------------------------------------
     # 6. DETEKSI KOLOM BULAN
     # --------------------------------------------------------
 
     all_columns_s3 = df_sheet3.columns.tolist()
-
     month_column = None
-
     possible_month_columns = [
-        "bulan",
-        "month",
-        "periode",
-        "period",
-        "tanggal",
-        "date",
-        "periode bulan"
+        "bulan", "month", "periode", "period", "tanggal", "date", "periode bulan"
     ]
 
     for col in all_columns_s3:
-
         col_lower = str(col).strip().lower()
-
         if col_lower in possible_month_columns:
-
             month_column = col
             break
 
-
-    # Jika tidak ditemukan berdasarkan nama persis,
-    # cari kolom yang mengandung kata bulan/month/periode.
-
     if month_column is None:
-
         for col in all_columns_s3:
-
             col_lower = str(col).strip().lower()
-
             if (
                 "bulan" in col_lower
                 or "month" in col_lower
                 or "periode" in col_lower
                 or "period" in col_lower
             ):
-
                 month_column = col
                 break
-
 
     # --------------------------------------------------------
     # 7. FUNGSI NORMALISASI BULAN
     # --------------------------------------------------------
 
     def get_month_number(value):
-
         if pd.isna(value):
             return None
-
         text = str(value).strip().lower()
 
-        # ---------------------------------------------
-        # Nama bulan Bahasa Indonesia
-        # ---------------------------------------------
-
         month_mapping = {
-
-            "januari": 1,
-            "jan": 1,
-
-            "februari": 2,
-            "feb": 2,
-
-            "maret": 3,
-            "mar": 3,
-
-            "april": 4,
-            "apr": 4,
-
-            "mei": 5,
-            "may": 5,
-
-            "juni": 6,
-            "jun": 6,
-
-            "juli": 7,
-            "jul": 7,
-
-            "agustus": 8,
-            "agu": 8,
-            "ags": 8,
-            "aug": 8,
-
-            "september": 9,
-            "sep": 9,
-
-            "oktober": 10,
-            "okt": 10,
-            "oct": 10,
-
-            "november": 11,
-            "nov": 11,
-
-            "desember": 12,
-            "des": 12,
-
-            # English
-            "january": 1,
-            "february": 2,
-            "march": 3,
-            "may": 5,
-            "june": 6,
-            "july": 7,
-            "august": 8,
-            "october": 10,
-            "december": 12
+            "januari": 1, "jan": 1, "februari": 2, "feb": 2,
+            "maret": 3, "mar": 3, "april": 4, "apr": 4,
+            "mei": 5, "may": 5, "juni": 6, "jun": 6,
+            "juli": 7, "jul": 7, "agustus": 8, "agu": 8, "ags": 8, "aug": 8,
+            "september": 9, "sep": 9, "oktober": 10, "okt": 10, "oct": 10,
+            "november": 11, "nov": 11, "desember": 12, "des": 12,
+            "january": 1, "february": 2, "march": 3, "june": 6, "july": 7, "august": 8, "october": 10, "december": 12
         }
 
         if text in month_mapping:
-
             return month_mapping[text]
 
-
-        # ---------------------------------------------
-        # Format angka
-        # ---------------------------------------------
-
         try:
-
             number = int(float(text))
-
             if 1 <= number <= 12:
-
                 return number
-
         except Exception:
-
             pass
-
-
-        # ---------------------------------------------
-        # Coba parsing tanggal
-        # ---------------------------------------------
 
         try:
-
-            parsed_date = pd.to_datetime(
-                value,
-                errors="coerce",
-                dayfirst=True
-            )
-
+            parsed_date = pd.to_datetime(value, errors="coerce", dayfirst=True)
             if not pd.isna(parsed_date):
-
                 return int(parsed_date.month)
-
         except Exception:
-
             pass
-
-
-        # ---------------------------------------------
-        # Cari nama bulan di dalam text
-        # ---------------------------------------------
 
         for month_name, month_num in month_mapping.items():
-
             if month_name in text:
-
                 return month_num
 
-
         return None
-
 
     # --------------------------------------------------------
     # 8. PILIH BARIS BULAN BERJALAN
@@ -1203,95 +1052,29 @@ with tab_monthly_area:
 
     current_month_df = pd.DataFrame()
 
-
     if month_column is not None:
-
-        # Buat kolom helper bulan
-        df_sheet3["_MONTH_NUMBER_"] = (
-            df_sheet3[month_column]
-            .apply(get_month_number)
-        )
-
-        # Ambil hanya bulan berjalan
-        current_month_df = df_sheet3[
-            df_sheet3["_MONTH_NUMBER_"] == current_month_number
-        ].copy()
-
-
-    # --------------------------------------------------------
-    # 9. FALLBACK JIKA KOLOM BULAN TIDAK TERDETEKSI
-    # --------------------------------------------------------
-    #
-    # Tidak langsung mengambil iloc seperti kode lama.
-    #
-    # Jika spreadsheet tidak memiliki kolom Bulan,
-    # sistem mencoba mendeteksi baris berdasarkan
-    # label bulan pada seluruh isi dataframe.
-    # --------------------------------------------------------
+        df_sheet3["_MONTH_NUMBER_"] = df_sheet3[month_column].apply(get_month_number)
+        current_month_df = df_sheet3[df_sheet3["_MONTH_NUMBER_"] == current_month_number].copy()
 
     if current_month_df.empty:
-
-        month_search_pattern = (
-            current_month_name.lower()
-        )
-
+        month_search_pattern = current_month_name.lower()
         candidate_rows = []
-
         for idx, row in df_sheet3.iterrows():
-
-            row_text = " ".join(
-                [
-                    str(v).strip().lower()
-                    for v in row.tolist()
-                    if not pd.isna(v)
-                ]
-            )
-
+            row_text = " ".join([str(v).strip().lower() for v in row.tolist() if not pd.isna(v)])
             if month_search_pattern in row_text:
-
                 candidate_rows.append(idx)
 
-
         if candidate_rows:
-
-            current_month_df = df_sheet3.loc[
-                candidate_rows
-            ].copy()
-
-
-    # --------------------------------------------------------
-    # 10. JIKA MASIH TIDAK DITEMUKAN
-    # --------------------------------------------------------
+            current_month_df = df_sheet3.loc[candidate_rows].copy()
 
     if current_month_df.empty:
-
         st.warning(
-            f"""
-            ⚠️ Data untuk bulan **{current_month_name} {current_year}**
-            belum ditemukan pada Sheet 3.
-
-            Kolom bulan yang terdeteksi:
-            **{month_column if month_column else 'Tidak ditemukan'}**
-            """
+            f"⚠️ Data untuk bulan **{current_month_name} {current_year}** belum ditemukan pada Sheet 3."
         )
-
         with st.expander("🔍 Lihat struktur data Sheet 3"):
-
-            st.write(
-                "Kolom yang terbaca:"
-            )
-
-            st.write(
-                all_columns_s3
-            )
-
-            st.dataframe(
-                df_sheet3.head(20),
-                use_container_width=True
-            )
-
+            st.write("Kolom yang terbaca:", all_columns_s3)
+            st.dataframe(df_sheet3.head(20), use_container_width=True)
         st.stop()
-
 
     # --------------------------------------------------------
     # 11. DETEKSI AREA - TARGET & AKTUAL
@@ -1299,135 +1082,44 @@ with tab_monthly_area:
 
     area_pairs_s3 = []
 
-
     for col in all_columns_s3:
-
         col_lower = str(col).lower().strip()
-
-        # Jangan proses kolom bulan
         if col == month_column:
             continue
 
-        # ----------------------------------------------------
-        # Cari kolom TARGET
-        # ----------------------------------------------------
+        if ("target" in col_lower and "month" not in col_lower and "bulan" not in col_lower):
+            clean_area = str(col).replace("Target", "").replace("target", "").replace("_", " ").strip()
+            clean_area = re.sub(r"\s+", " ", clean_area).strip()
 
-        if (
-            "target" in col_lower
-            and "month" not in col_lower
-            and "bulan" not in col_lower
-        ):
-
-            clean_area = (
-                str(col)
-                .replace("Target", "")
-                .replace("target", "")
-                .replace("_", " ")
-                .strip()
-            )
-
-            # Hilangkan kata tambahan
-            clean_area = re.sub(
-                r"\s+",
-                " ",
-                clean_area
-            ).strip()
-
-
-            # Skip keyword yang tidak dianggap area
-            if any(
-                kw in clean_area.lower()
-                for kw in EXCLUDE_KEYWORDS
-            ):
-
+            if any(kw in clean_area.lower() for kw in EXCLUDE_KEYWORDS):
                 continue
 
-
-            # ------------------------------------------------
-            # Cari kolom AKTUAL
-            # ------------------------------------------------
-
             actual_column = None
-
             for candidate in all_columns_s3:
-
-                candidate_lower = (
-                    str(candidate)
-                    .lower()
-                    .strip()
-                )
-
+                candidate_lower = str(candidate).lower().strip()
                 if candidate == col:
                     continue
 
-                area_match = (
-                    clean_area.lower()
-                    in candidate_lower
-                )
-
-                actual_match = any(
-                    key in candidate_lower
-                    for key in [
-                        "aktual",
-                        "actual",
-                        "score",
-                        "nilai",
-                        "pencapaian",
-                        "hasil"
-                    ]
-                )
+                area_match = clean_area.lower() in candidate_lower
+                actual_match = any(key in candidate_lower for key in ["aktual", "actual", "score", "nilai", "pencapaian", "hasil"])
 
                 if area_match and actual_match:
-
                     actual_column = candidate
                     break
 
-
-            # ------------------------------------------------
-            # Jika actual ditemukan
-            # ------------------------------------------------
-
             if actual_column is not None:
-
-                area_pairs_s3.append(
-                    (
-                        clean_area,
-                        col,
-                        actual_column
-                    )
-                )
-
-
-    # --------------------------------------------------------
-    # 12. FILTER DEPARTMENT / AREA
-    # --------------------------------------------------------
+                area_pairs_s3.append((clean_area, col, actual_column))
 
     if selected_departments:
-
         filtered_pairs_s3 = [
-
-            pair
-            for pair in area_pairs_s3
-
-            if any(
-                sd.lower() in pair[0].lower()
-                or pair[0].lower() in sd.lower()
-                for sd in selected_departments
-            )
+            pair for pair in area_pairs_s3
+            if any(sd.lower() in pair[0].lower() or pair[0].lower() in sd.lower() for sd in selected_departments)
         ]
-
     else:
-
         filtered_pairs_s3 = area_pairs_s3
-
-
-    # Jika filter tidak menghasilkan data,
-    # tampilkan semua area.
 
     if not filtered_pairs_s3:
-
         filtered_pairs_s3 = area_pairs_s3
-
 
     # --------------------------------------------------------
     # 13. HITUNG DATA BULAN BERJALAN
@@ -1435,593 +1127,152 @@ with tab_monthly_area:
 
     summary_stats = []
 
-
     for area_name, target_col, actual_col in filtered_pairs_s3:
-
         target_values = []
-
         actual_values = []
 
-
-        # Ambil hanya data dari current_month_df
-
         for value in current_month_df[target_col]:
-
             number = convert_to_number(value)
-
             if number is not None:
-
                 target_values.append(number)
 
-
         for value in current_month_df[actual_col]:
-
             number = convert_to_number(value)
-
             if number is not None:
-
                 actual_values.append(number)
 
+        avg_target = sum(target_values) / len(target_values) if target_values else 0
+        avg_actual = sum(actual_values) / len(actual_values) if actual_values else 0
+        status = "ACHIEVED" if avg_actual >= avg_target else "NOT ACHIEVED"
 
-        # Rata-rata jika terdapat lebih dari satu baris
-        # pada bulan yang sama.
-
-        avg_target = (
-            sum(target_values) / len(target_values)
-            if target_values
-            else 0
-        )
-
-        avg_actual = (
-            sum(actual_values) / len(actual_values)
-            if actual_values
-            else 0
-        )
-
-
-        # Status target
-
-        if avg_actual >= avg_target:
-
-            status = "ACHIEVED"
-
-        else:
-
-            status = "NOT ACHIEVED"
-
-
-        summary_stats.append(
-            {
-                "area": area_name,
-                "target": avg_target,
-                "actual": avg_actual,
-                "status": status
-            }
-        )
-
+        summary_stats.append({
+            "area": area_name,
+            "target": avg_target,
+            "actual": avg_actual,
+            "status": status
+        })
 
     # --------------------------------------------------------
-    # 14. BOX RANGKUMAN
+    # 14. BOX RANGKUMAN (DIUBAH SANGAT RAPAT AGAR RENDER HARMONIS)
     # --------------------------------------------------------
 
     if summary_stats:
+        best_area = max(summary_stats, key=lambda x: x["actual"])
+        lowest_area = min(summary_stats, key=lambda x: x["actual"])
 
-        best_area = max(
-            summary_stats,
-            key=lambda x: x["actual"]
-        )
+        achieved_areas = [item["area"] for item in summary_stats if item["status"] == "ACHIEVED"]
+        not_achieved_areas = [item["area"] for item in summary_stats if item["status"] == "NOT ACHIEVED"]
 
-        lowest_area = min(
-            summary_stats,
-            key=lambda x: x["actual"]
-        )
-
-
-        achieved_areas = [
-            item["area"]
-            for item in summary_stats
-            if item["status"] == "ACHIEVED"
-        ]
-
-
-        not_achieved_areas = [
-            item["area"]
-            for item in summary_stats
-            if item["status"] == "NOT ACHIEVED"
-        ]
-
-
-        achieved_str = (
-            ", ".join(achieved_areas)
-            if achieved_areas
-            else "Belum ada area"
-        )
-
-
-        not_achieved_str = (
-            ", ".join(not_achieved_areas)
-            if not_achieved_areas
-            else "Semua area mencapai target"
-        )
-
+        achieved_str = ", ".join(achieved_areas) if achieved_areas else "Belum ada area"
+        not_achieved_str = ", ".join(not_achieved_areas) if not_achieved_areas else "Semua area mencapai target"
 
         st.markdown(
-            f"""
-            <div class="summary-box"
-                 style="
-                    background-color: var(--secondary-background-color, #ffffff);
-                    border-left: 5px solid #004d73;
-                    margin-bottom: 25px;
-                 ">
-
-                <h4 style="
-                    margin: 0 0 12px 0;
-                    color: #004d73;
-                    font-size: 16px;
-                ">
-                    📋 RANGKUMAN PENCAPAIAN 5S -
-                    {current_month_name} {current_year}
-                </h4>
-
-                <table style="
-                    width:100%;
-                    border-collapse:collapse;
-                    font-size:13px;
-                    line-height:1.7;
-                ">
-
-                    <tr>
-                        <td style="width:35%; font-weight:bold;">
-                            Area Performa Terbaik
-                        </td>
-
-                        <td>
-                            : <b>
-                                {best_area["area"].upper()}
-                              </b>
-                              -
-                              Aktual:
-                              <b style="color:#2e7d32;">
-                                {best_area["actual"]:.2f}
-                              </b>
-                        </td>
-                    </tr>
-
-
-                    <tr>
-                        <td style="font-weight:bold;">
-                            Area Perlu Perhatian
-                        </td>
-
-                        <td>
-                            : <b>
-                                {lowest_area["area"].upper()}
-                              </b>
-                              -
-                              Aktual:
-                              <b style="color:#c62828;">
-                                {lowest_area["actual"]:.2f}
-                              </b>
-                        </td>
-                    </tr>
-
-
-                    <tr>
-                        <td style="font-weight:bold;">
-                            Area Mencapai Target
-                        </td>
-
-                        <td>
-                            : <b>{achieved_str}</b>
-                        </td>
-                    </tr>
-
-
-                    <tr>
-                        <td style="font-weight:bold;">
-                            Area Belum Mencapai Target
-                        </td>
-
-                        <td>
-                            : <b>{not_achieved_str}</b>
-                        </td>
-                    </tr>
-
-
-                    <tr>
-                        <td style="font-weight:bold;">
-                            Periode Data
-                        </td>
-
-                        <td>
-                            : <b>
-                                {current_month_name} {current_year}
-                              </b>
-                              — hanya data bulan berjalan
-                        </td>
-                    </tr>
-
-                </table>
-
-            </div>
-            """,
+            f'<div class="summary-box" style="background-color: var(--secondary-background-color, #ffffff); border-left: 5px solid #004d73; margin-bottom: 25px;"><h4 style="margin: 0 0 12px 0; color: #004d73; font-size: 16px;">📋 RANGKUMAN PENCAPAIAN 5S - {current_month_name} {current_year}</h4><table style="width:100%; border-collapse:collapse; font-size:13px; line-height:1.7;"><tr><td style="width:35%; font-weight:bold;">Area Performa Terbaik</td><td>: <b>{best_area["area"].upper()}</b> - Aktual: <b style="color:#2e7d32;">{best_area["actual"]:.2f}</b></td></tr><tr><td style="font-weight:bold;">Area Perlu Perhatian</td><td>: <b>{lowest_area["area"].upper()}</b> - Aktual: <b style="color:#c62828;">{lowest_area["actual"]:.2f}</b></td></tr><tr><td style="font-weight:bold;">Area Mencapai Target</td><td>: <b>{achieved_str}</b></td></tr><tr><td style="font-weight:bold;">Area Belum Mencapai Target</td><td>: <b>{not_achieved_str}</b></td></tr><tr><td style="font-weight:bold;">Periode Data</td><td>: <b>{current_month_name} {current_year}</b> — hanya data bulan berjalan</td></tr></table></div>',
             unsafe_allow_html=True
         )
-
 
     # --------------------------------------------------------
     # 15. TABEL REKAP BULAN BERJALAN
     # --------------------------------------------------------
 
     st.markdown(
-        f"""
-        <div class="section-header">
-            DETAIL PENCAPAIAN 5S -
-            {current_month_name} {current_year}
-        </div>
-        """,
+        f'<div class="section-header">DETAIL PENCAPAIAN 5S - {current_month_name} {current_year}</div>',
         unsafe_allow_html=True
     )
 
-
     result_table = []
-
-
     for item in summary_stats:
-
         target = item["target"]
         actual = item["actual"]
-
         gap = actual - target
+        achievement = (actual / target) * 100 if target != 0 else 0
 
-        achievement = (
-            (actual / target) * 100
-            if target != 0
-            else 0
-        )
+        result_table.append({
+            "Area": item["area"],
+            "Target": round(target, 2),
+            "Aktual": round(actual, 2),
+            "Gap": round(gap, 2),
+            "Achievement (%)": round(achievement, 1),
+            "Status": item["status"]
+        })
 
-
-        result_table.append(
-            {
-                "Area": item["area"],
-                "Target": round(target, 2),
-                "Aktual": round(actual, 2),
-                "Gap": round(gap, 2),
-                "Achievement (%)": round(
-                    achievement,
-                    1
-                ),
-                "Status": item["status"]
-            }
-        )
-
-
-    df_result_s3 = pd.DataFrame(
-        result_table
-    )
-
+    df_result_s3 = pd.DataFrame(result_table)
 
     if not df_result_s3.empty:
-
-        # Urutkan berdasarkan aktual tertinggi
-        df_result_s3 = df_result_s3.sort_values(
-            by="Aktual",
-            ascending=False
-        ).reset_index(drop=True)
-
-
-        # Tambahkan ranking
-        df_result_s3.insert(
-            0,
-            "Rank",
-            range(
-                1,
-                len(df_result_s3) + 1
-            )
-        )
-
-
-        st.dataframe(
-            df_result_s3,
-            use_container_width=True,
-            hide_index=True
-        )
-
+        df_result_s3 = df_result_s3.sort_values(by="Aktual", ascending=False).reset_index(drop=True)
+        df_result_s3.insert(0, "Rank", range(1, len(df_result_s3) + 1))
+        st.dataframe(df_result_s3, use_container_width=True, hide_index=True)
 
     # --------------------------------------------------------
     # 16. GRAFIK PER AREA
     # --------------------------------------------------------
 
+    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(
-        "<br>",
+        f'<div class="section-header">GRAFIK PENCAPAIAN 5S - {current_month_name} {current_year}</div>',
         unsafe_allow_html=True
     )
 
-
-    st.markdown(
-        f"""
-        <div class="section-header">
-            GRAFIK PENCAPAIAN 5S -
-            {current_month_name} {current_year}
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
-    # --------------------------------------------------------
-    # Grafik dibuat per 2 area
-    # --------------------------------------------------------
-
-    for i in range(
-        0,
-        len(filtered_pairs_s3),
-        2
-    ):
-
+    for i in range(0, len(filtered_pairs_s3), 2):
         cols_m = st.columns(2)
 
+        area_name1, target_col1, actual_col1 = filtered_pairs_s3[i]
+        target_values1 = [convert_to_number(v) for v in current_month_df[target_col1] if convert_to_number(v) is not None]
+        actual_values1 = [convert_to_number(v) for v in current_month_df[actual_col1] if convert_to_number(v) is not None]
 
-        # ====================================================
-        # AREA 1
-        # ====================================================
+        target1 = sum(target_values1) / len(target_values1) if target_values1 else 0
+        actual1 = sum(actual_values1) / len(actual_values1) if actual_values1 else 0
 
-        area_name1, target_col1, actual_col1 = (
-            filtered_pairs_s3[i]
-        )
-
-
-        target_values1 = []
-
-        actual_values1 = []
-
-
-        for value in current_month_df[target_col1]:
-
-            number = convert_to_number(value)
-
-            if number is not None:
-
-                target_values1.append(number)
-
-
-        for value in current_month_df[actual_col1]:
-
-            number = convert_to_number(value)
-
-            if number is not None:
-
-                actual_values1.append(number)
-
-
-        target1 = (
-            sum(target_values1) /
-            len(target_values1)
-            if target_values1
-            else 0
-        )
-
-
-        actual1 = (
-            sum(actual_values1) /
-            len(actual_values1)
-            if actual_values1
-            else 0
-        )
-
-
-        # Grafik hanya 1 bulan
-        months_label1 = [
-            current_month_name
-        ]
-
-        target_chart1 = [
-            target1
-        ]
-
-        actual_chart1 = [
-            actual1
-        ]
-
+        months_label1 = [current_month_name]
+        target_chart1 = [target1]
+        actual_chart1 = [actual1]
 
         with cols_m[0]:
-
             st.plotly_chart(
-                create_exact_chart(
-                    months_label1,
-                    target_chart1,
-                    actual_chart1,
-                    f"REKAP 5S - "
-                    f"{area_name1.upper()} - "
-                    f"{current_month_name}"
-                ),
+                create_exact_chart(months_label1, target_chart1, actual_chart1, f"REKAP 5S - {area_name1.upper()} - {current_month_name}"),
                 use_container_width=True
             )
-
-
-            # Tabel kecil
-            df_area1 = pd.DataFrame(
-                {
-                    "Bulan": [
-                        current_month_name
-                    ],
-                    "Target": [
-                        round(target1, 2)
-                    ],
-                    "Aktual": [
-                        round(actual1, 2)
-                    ],
-                    "Gap": [
-                        round(
-                            actual1 - target1,
-                            2
-                        )
-                    ]
-                }
-            )
-
-
-            st.dataframe(
-                df_area1,
-                use_container_width=True,
-                hide_index=True
-            )
-
-
-        # ====================================================
-        # AREA 2
-        # ====================================================
+            df_area1 = pd.DataFrame({
+                "Bulan": [current_month_name],
+                "Target": [round(target1, 2)],
+                "Aktual": [round(actual1, 2)],
+                "Gap": [round(actual1 - target1, 2)]
+            })
+            st.dataframe(df_area1, use_container_width=True, hide_index=True)
 
         if i + 1 < len(filtered_pairs_s3):
+            area_name2, target_col2, actual_col2 = filtered_pairs_s3[i + 1]
+            target_values2 = [convert_to_number(v) for v in current_month_df[target_col2] if convert_to_number(v) is not None]
+            actual_values2 = [convert_to_number(v) for v in current_month_df[actual_col2] if convert_to_number(v) is not None]
 
-            area_name2, target_col2, actual_col2 = (
-                filtered_pairs_s3[i + 1]
-            )
+            target2 = sum(target_values2) / len(target_values2) if target_values2 else 0
+            actual2 = sum(actual_values2) / len(actual_values2) if actual_values2 else 0
 
-
-            target_values2 = []
-
-            actual_values2 = []
-
-
-            for value in current_month_df[target_col2]:
-
-                number = convert_to_number(value)
-
-                if number is not None:
-
-                    target_values2.append(number)
-
-
-            for value in current_month_df[actual_col2]:
-
-                number = convert_to_number(value)
-
-                if number is not None:
-
-                    actual_values2.append(number)
-
-
-            target2 = (
-                sum(target_values2) /
-                len(target_values2)
-                if target_values2
-                else 0
-            )
-
-
-            actual2 = (
-                sum(actual_values2) /
-                len(actual_values2)
-                if actual_values2
-                else 0
-            )
-
-
-            months_label2 = [
-                current_month_name
-            ]
-
-            target_chart2 = [
-                target2
-            ]
-
-            actual_chart2 = [
-                actual2
-            ]
-
+            months_label2 = [current_month_name]
+            target_chart2 = [target2]
+            actual_chart2 = [actual2]
 
             with cols_m[1]:
-
                 st.plotly_chart(
-                    create_exact_chart(
-                        months_label2,
-                        target_chart2,
-                        actual_chart2,
-                        f"REKAP 5S - "
-                        f"{area_name2.upper()} - "
-                        f"{current_month_name}"
-                    ),
+                    create_exact_chart(months_label2, target_chart2, actual_chart2, f"REKAP 5S - {area_name2.upper()} - {current_month_name}"),
                     use_container_width=True
                 )
+                df_area2 = pd.DataFrame({
+                    "Bulan": [current_month_name],
+                    "Target": [round(target2, 2)],
+                    "Aktual": [round(actual2, 2)],
+                    "Gap": [round(actual2 - target2, 2)]
+                })
+                st.dataframe(df_area2, use_container_width=True, hide_index=True)
 
+        st.markdown('<hr style="margin:25px 0; border:0; border-top:1px dashed #cbd5e1;">', unsafe_allow_html=True)
 
-                df_area2 = pd.DataFrame(
-                    {
-                        "Bulan": [
-                            current_month_name
-                        ],
-                        "Target": [
-                            round(target2, 2)
-                        ],
-                        "Aktual": [
-                            round(actual2, 2)
-                        ],
-                        "Gap": [
-                            round(
-                                actual2 - target2,
-                                2
-                            )
-                        ]
-                    }
-                )
-
-
-                st.dataframe(
-                    df_area2,
-                    use_container_width=True,
-                    hide_index=True
-                )
-
-
-        # Separator
-        st.markdown(
-            """
-            <hr style="
-                margin:25px 0;
-                border:0;
-                border-top:1px dashed #cbd5e1;
-            ">
-            """,
-            unsafe_allow_html=True
-        )
-
-
-    # --------------------------------------------------------
-    # 17. INFORMASI DEBUG - BISA DISEMBUNYIKAN
-    # --------------------------------------------------------
-
-    with st.expander(
-        "🔧 Informasi Data Tab 3"
-    ):
-
-        st.write(
-            f"**Tanggal sistem:** "
-            f"{current_date.strftime('%d-%m-%Y')}"
-        )
-
-        st.write(
-            f"**Bulan berjalan:** "
-            f"{current_month_name} {current_year}"
-        )
-
-        st.write(
-            f"**Kolom bulan:** "
-            f"{month_column}"
-        )
-
-        st.write(
-            f"**Jumlah baris bulan berjalan:** "
-            f"{len(current_month_df)}"
-        )
-
-        st.write(
-            "**Kolom Sheet 3:**"
-        )
-
-        st.write(
-            all_columns_s3
-        )
+    with st.expander("🔧 Informasi Data Tab 3"):
+        st.write(f"**Tanggal sistem:** {current_date.strftime('%d-%m-%Y')}")
+        st.write(f"**Bulan berjalan:** {current_month_name} {current_year}")
+        st.write(f"**Kolom bulan:** {month_column}")
+        st.write(f"**Jumlah baris bulan berjalan:** {len(current_month_df)}")
+        st.write("**Kolom Sheet 3:**", all_columns_s3)
 
     # --- TAB 4: PARETO & AI RECOMMENDATION ---
     with tab_pareto:
